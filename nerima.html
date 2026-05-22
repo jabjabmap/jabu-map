@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>JABU MAP | じゃぶじゃぶ池ナビ 練馬区</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --blue: #29B6F6;
+      --blue-dark: #0277BD;
+      --blue-light: #E1F5FE;
+      --blue-mid: #0288D1;
+      --green: #388E3C;
+      --green-bg: #E8F5E9;
+      --red: #C62828;
+      --red-bg: #FFEBEE;
+      --orange: #E65100;
+      --orange-bg: #FFF3E0;
+      --gray: #757575;
+      --gray-bg: #F5F5F5;
+      --text: #1A237E;
+      --text-main: #212121;
+      --bg: #F0FDFF;
+      --card: #FFFFFF;
+      --border: #B3E5FC;
+      --shadow: 0 2px 12px rgba(2,136,209,0.10);
+      --radius: 16px;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    html, body { height:100%; font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,sans-serif; background:var(--bg); color:var(--text-main); overflow-x:hidden; }
+
+    .header { background: var(--blue-dark); color: white; padding: 10px 14px; position: sticky; top: 0; z-index: 1000; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    .header-icon { font-size: 22px; }
+    .header-text { flex: 1; }
+    .header-title { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
+    .header-title span { color: #80DEEA; }
+    .header-sub { font-size: 10px; opacity: 0.8; margin-top: 1px; }
+    .header-area { background: rgba(255,255,255,0.18); padding: 4px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+
+    .season-banner { background: linear-gradient(90deg, #0288D1, #00ACC1); color: white; padding: 7px 14px; font-size: 12px; text-align: center; }
+
+    .filter-wrap { background: white; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    .filter-row { display: flex; flex-wrap: wrap; gap: 7px; }
+    .filter-chip { display: inline-flex; align-items: center; gap: 3px; padding: 6px 12px; border-radius: 20px; border: 1.5px solid var(--blue-mid); background: white; color: var(--blue-dark); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.12s; user-select: none; }
+    .filter-chip.active { background: var(--blue-mid); color: white; border-color: var(--blue-mid); }
+    .filter-chip:active { opacity: 0.7; }
+
+    #map { height: 40vh; min-height: 210px; max-height: 300px; width: 100%; }
+
+    .spot-header { padding: 10px 14px 4px; display: flex; align-items: baseline; gap: 6px; }
+    .spot-count { font-size: 22px; font-weight: 800; color: var(--blue-dark); }
+    .spot-label { font-size: 12px; color: var(--gray); }
+
+    .cards { padding: 4px 12px 80px; display: flex; flex-direction: column; gap: 10px; }
+    .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 13px 14px; cursor: pointer; border: 1.5px solid transparent; transition: border-color 0.15s, transform 0.1s; }
+    .card:active { transform: scale(0.985); }
+    .card.highlighted { border-color: var(--blue-mid); }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+    .card-name { font-size: 15px; font-weight: 700; color: var(--text-main); flex: 1; line-height: 1.35; }
+    .card-type-badge { font-size: 10px; background: var(--blue-light); color: var(--blue-dark); padding: 3px 7px; border-radius: 8px; margin-left: 8px; white-space: nowrap; font-weight: 600; flex-shrink: 0; }
+    .card-meta { font-size: 11px; color: var(--gray); display: flex; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 9px; }
+    .card-meta-item { display: flex; align-items: center; gap: 2px; }
+    .card-icons { display: flex; gap: 14px; flex-wrap: wrap; }
+    .ci { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+    .ci-emoji { font-size: 18px; line-height: 1; }
+    .ci-label { font-size: 9px; font-weight: 600; }
+    .ci.ok .ci-label { color: var(--green); }
+    .ci.ng .ci-label { color: var(--red); }
+    .ci.warn .ci-label { color: var(--orange); }
+    .ci.unknown .ci-label { color: #BDBDBD; }
+
+    .no-results { text-align: center; padding: 50px 20px; color: var(--gray); }
+    .no-results-emoji { font-size: 52px; margin-bottom: 12px; }
+    .no-results-text { font-size: 14px; }
+
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 3000; align-items: flex-end; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: white; border-radius: 22px 22px 0 0; width: 100%; max-height: 88vh; overflow-y: auto; overflow-x: hidden; animation: slideUp 0.22s cubic-bezier(.4,0,.2,1); padding-bottom: env(safe-area-inset-bottom, 20px); }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .modal-handle { width: 36px; height: 4px; background: #E0E0E0; border-radius: 2px; margin: 12px auto 0; }
+    .modal-close-row { display: flex; justify-content: flex-end; padding: 6px 14px 0; }
+    .modal-close { width: 30px; height: 30px; background: var(--gray-bg); border: none; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--gray); }
+
+    .modal-photo { width: 100%; height: 180px; background: linear-gradient(135deg, #B3E5FC, #E0F7FA); overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 64px; }
+    .modal-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .modal-body { padding: 0 16px; }
+    .modal-name { font-size: 20px; font-weight: 800; color: var(--text-main); margin: 12px 0 3px; line-height: 1.3; }
+    .modal-address { font-size: 12px; color: var(--gray); margin-bottom: 8px; }
+    .official-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; color: var(--green); background: var(--green-bg); padding: 3px 7px; border-radius: 6px; font-weight: 600; margin-bottom: 10px; }
+
+    .modal-period-box { background: var(--blue-light); border-radius: 10px; padding: 10px 12px; margin: 10px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .period-item { }
+    .period-label { font-size: 10px; color: var(--blue-dark); font-weight: 600; }
+    .period-value { font-size: 13px; font-weight: 700; color: var(--text-main); margin-top: 2px; }
+
+    .section-title { font-size: 11px; font-weight: 700; color: var(--gray); letter-spacing: 0.8px; text-transform: uppercase; margin: 14px 0 8px; }
+
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 4px; }
+    .info-cell { background: var(--gray-bg); border-radius: 10px; padding: 9px 10px; }
+    .info-cell-top { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; }
+    .info-cell-icon { font-size: 16px; }
+    .info-cell-label { font-size: 10px; color: var(--gray); font-weight: 600; }
+    .info-cell-value { font-size: 13px; font-weight: 700; }
+    .info-cell-value.ok { color: var(--green); }
+    .info-cell-value.ng { color: var(--red); }
+    .info-cell-value.warn { color: var(--orange); }
+    .info-cell-value.unknown { color: #BDBDBD; }
+
+    .note-box { background: #F8FFFE; border-left: 3px solid var(--blue); border-radius: 0 8px 8px 0; padding: 9px 11px; font-size: 13px; color: var(--text-main); line-height: 1.55; margin: 10px 0; }
+
+    .btn-row { display: flex; gap: 8px; margin: 14px 0 10px; }
+    .btn { flex: 1; padding: 14px 10px; border: none; border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 5px; transition: opacity 0.12s; }
+    .btn:active { opacity: 0.75; }
+    .btn-primary { background: var(--blue-dark); color: white; }
+    .btn-directions { background: #00897B; color: white; }
+    .btn-secondary { background: var(--gray-bg); color: var(--text-main); }
+
+    .disclaimer { background: #FFF8E1; border-radius: 10px; padding: 10px 12px; margin: 4px 0 16px; font-size: 11px; color: #5D4037; line-height: 1.55; border-left: 3px solid #FFA726; }
+
+    .leaflet-container { font-family: inherit; }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-icon">💧</div>
+  <div class="header-text">
+    <div class="header-title">JABU <span>MAP</span></div>
+    <div class="header-sub">じゃぶじゃぶ池ナビ</div>
+  </div>
+  <div class="header-area">練馬区</div>
+</header>
+
+<div class="season-banner">
+  🌊 開設期間：7月中旬〜8月末（例年）｜ 裸足NG・サンダル等着用を ｜ 最新情報は公式確認
+</div>
+
+<div class="filter-wrap">
+  <div class="filter-row" id="filterRow"></div>
+</div>
+
+<div id="map"></div>
+
+<div class="spot-header">
+  <span class="spot-count" id="spotCount">0</span>
+  <span class="spot-label">件表示中</span>
+</div>
+
+<div class="cards" id="cardList"></div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-close-row">
+      <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    </div>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ─── DATA（出典：練馬区公式HP）────────────────────────────────────────────────
+const BASE = "https://www.city.nerima.tokyo.jp";
+const OFFICIAL = BASE + "/kankomoyoshi/annai/fukei/nerima_park/kunai/mizusisetu.html";
+
+const SPOTS = [
+  // ── 東部公園出張所管内 ──
+  {
+    id: 1,
+    name: "夏の雲公園",
+    shortName: "夏の雲公園",
+    type: "流れ（じゃぶじゃぶ池）",
+    emoji: "☁️",
+    photo: BASE + "/mizusisetu.images/natsunokumo.jpg",
+    lat: 35.7680, lng: 139.6220,
+    address: "練馬区光が丘3-4",
+    period: "7月中旬〜8月末（例年）",
+    area: "東部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "渦巻状の流れ",
+    crowd: "光が丘エリア・人気スポット",
+    note: "渦巻き状の流れが特徴的な公園。光が丘駅近く。",
+    gmapQuery: "夏の雲公園 練馬区光が丘3丁目"
+  },
+  {
+    id: 2,
+    name: "春の風公園",
+    shortName: "春の風公園",
+    type: "流れ",
+    emoji: "🌬️",
+    photo: null,
+    lat: 35.7620, lng: 139.6200,
+    address: "練馬区光が丘7-4",
+    period: "7月中旬〜8月末（例年）",
+    area: "東部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "流れ",
+    crowd: "光が丘エリア",
+    note: "光が丘エリアの水遊びスポット。駅近。",
+    gmapQuery: "春の風公園 練馬区光が丘7丁目"
+  },
+  {
+    id: 3,
+    name: "やくも公園",
+    shortName: "やくも公園",
+    type: "流れ",
+    emoji: "🌿",
+    photo: null,
+    lat: 35.7370, lng: 139.6720,
+    address: "練馬区小竹町1-13-5",
+    period: "7月中旬〜8月末（例年）",
+    area: "東部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "流れ",
+    crowd: "要確認",
+    note: "小竹向原駅近く。",
+    gmapQuery: "やくも公園 練馬区小竹町1丁目"
+  },
+  {
+    id: 4,
+    name: "小竹みどり公園",
+    shortName: "小竹みどり公園",
+    type: "流れ",
+    emoji: "🍃",
+    photo: null,
+    lat: 35.7340, lng: 139.6730,
+    address: "練馬区小竹町2-70-1",
+    period: "7月中旬〜8月末（例年）",
+    area: "東部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "流れ",
+    crowd: "要確認",
+    note: "小竹エリアの水遊びスポット。",
+    gmapQuery: "小竹みどり公園 練馬区小竹町2丁目"
+  },
+  {
+    id: 5,
+    name: "栄町公園",
+    shortName: "栄町公園",
+    type: "流れ",
+    emoji: "🌸",
+    photo: null,
+    lat: 35.7330, lng: 139.6700,
+    address: "練馬区栄町16-4",
+    period: "7月中旬〜8月末（例年）",
+    area: "東部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: false,
+    ageRange: "0〜6歳向け",
+    depth: "流れ",
+    crowd: "要確認",
+    note: "",
+    gmapQuery: "栄町公園 練馬区栄町16"
+  },
+  {
+    id: 6,
+    name: "羽沢ふじ公園",
+    shortName: "羽沢ふじ公園",
+    type: "流れ",
+    emoji: "🌸",
+    photo: null,
+    lat: 35.7370, lng: 139.6540,
+    address: "練馬区羽沢2-19-9",
+    period: "7月中旬〜8月末（例年）",
+    area: "東部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: false,
+    ageRange: "0〜6歳向け",
+    depth: "流れ",
+    crowd: "要確認",
+    note: "",
+    gmapQuery: "羽沢ふじ公園 練馬区羽沢2丁目"
+  },
+  // ── 西部公園出張所管内 ──
+  {
+    id: 7,
+    name: "立野公園",
+    shortName: "立野公園",
+    type: "池・噴水・流れ（複合）",
+    emoji: "🏞️",
+    photo: null,
+    lat: 35.7500, lng: 139.6140,
+    address: "練馬区立野町32-1",
+    period: "7月中旬〜8月末（例年）",
+    area: "西部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: false,
+    ageRange: "0〜6歳向け",
+    depth: "池・噴水・流れの複合施設",
+    crowd: "複合施設で人気",
+    note: "池・噴水・流れがすべて揃う練馬区屈指の複合水遊びスポット。",
+    gmapQuery: "立野公園 練馬区立野町"
+  },
+  {
+    id: 8,
+    name: "練馬高野台駅南口\n水遊び施設",
+    shortName: "練馬高野台駅南口",
+    type: "噴水",
+    emoji: "⛲",
+    photo: null,
+    lat: 35.7520, lng: 139.6260,
+    address: "練馬区高野台1-3",
+    period: "7月中旬〜8月末（例年）",
+    area: "西部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "噴水",
+    crowd: "駅前・人通り多い",
+    note: "練馬高野台駅南口すぐ。駅前の噴水施設で荷物少なく立ち寄れる。",
+    gmapQuery: "練馬高野台駅南口 水遊び 練馬区高野台1丁目"
+  },
+  {
+    id: 9,
+    name: "平成公園",
+    shortName: "平成公園",
+    type: "池・噴水（複合）",
+    emoji: "🌊",
+    photo: null,
+    lat: 35.7450, lng: 139.6200,
+    address: "練馬区上石神井1-32-33",
+    period: "7月中旬〜8月末（例年）",
+    area: "西部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "池と噴水の複合",
+    crowd: "石神井エリアで人気",
+    note: "池と噴水を楽しめる複合施設。上石神井駅近く。",
+    gmapQuery: "平成公園 練馬区上石神井1丁目"
+  },
+  {
+    id: 10,
+    name: "あかしあ児童公園",
+    shortName: "あかしあ児童公園",
+    type: "流れ",
+    emoji: "🌼",
+    photo: null,
+    lat: 35.7530, lng: 139.5800,
+    address: "練馬区東大泉5-40-32",
+    period: "7月中旬〜8月末（例年）",
+    area: "西部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: false,
+    ageRange: "0〜6歳向け",
+    depth: "流れ",
+    crowd: "要確認",
+    note: "",
+    gmapQuery: "あかしあ児童公園 練馬区東大泉5丁目"
+  },
+  {
+    id: 11,
+    name: "東大泉弁天池公園",
+    shortName: "東大泉弁天池公園",
+    type: "流れ",
+    emoji: "⛩️",
+    photo: null,
+    lat: 35.7570, lng: 139.5850,
+    address: "練馬区東大泉3-37-9",
+    period: "7月中旬〜8月末（例年）",
+    area: "西部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: false,
+    ageRange: "0〜6歳向け",
+    depth: "流れ",
+    crowd: "要確認",
+    note: "弁天池公園の水辺環境。",
+    gmapQuery: "東大泉弁天池公園 練馬区東大泉3丁目"
+  },
+  {
+    id: 12,
+    name: "和田堀緑道",
+    shortName: "和田堀緑道",
+    type: "流れ（緑道）",
+    emoji: "🌲",
+    photo: null,
+    lat: 35.7450, lng: 139.6090,
+    address: "練馬区石神井町3-2",
+    period: "7月中旬〜8月末（例年）",
+    area: "西部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: true, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "緑道沿いの流れ",
+    crowd: "散策がてら立ち寄れる",
+    note: "緑道沿いの流れ。木陰が期待できる。石神井公園駅近く。",
+    gmapQuery: "和田堀緑道 練馬区石神井町3丁目"
+  },
+  {
+    id: 13,
+    name: "中村南公園",
+    shortName: "中村南公園",
+    type: "噴水",
+    emoji: "⛲",
+    photo: null,
+    lat: 35.7350, lng: 139.6380,
+    address: "練馬区中村南2-22-4",
+    period: "7月中旬〜8月末（例年）",
+    area: "西部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: false,
+    ageRange: "0〜6歳向け",
+    depth: "噴水",
+    crowd: "要確認",
+    note: "",
+    gmapQuery: "中村南公園 練馬区中村南2丁目"
+  },
+  {
+    id: 14,
+    name: "三原台公園",
+    shortName: "三原台公園",
+    type: "噴水（ミスト系）",
+    emoji: "💨",
+    photo: null,
+    lat: 35.7420, lng: 139.6190,
+    address: "練馬区三原台3-7-34",
+    period: "7月中旬〜8月末（例年）",
+    area: "西部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: false,
+    ageRange: "0〜6歳向け",
+    depth: "ミスト状の水（定期噴出）",
+    crowd: "要確認",
+    note: "ミスト状の水が定期的に噴出する特殊な噴水施設。服でも気軽に遊べる。",
+    gmapQuery: "三原台公園 練馬区三原台3丁目"
+  },
+  {
+    id: 15,
+    name: "豊玉さくら公園",
+    shortName: "豊玉さくら公園",
+    type: "噴水（ミスト系）",
+    emoji: "🌸",
+    photo: null,
+    lat: 35.7260, lng: 139.6560,
+    address: "練馬区豊玉中3-18-1",
+    period: "7月中旬〜8月末（例年）",
+    area: "西部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "ミスト状の水（定期噴出）",
+    crowd: "要確認",
+    note: "ミスト状の水が定期的に噴出。服でも気軽に遊べる。豊玉中駅近く。",
+    gmapQuery: "豊玉さくら公園 練馬区豊玉中3丁目"
+  },
+  {
+    id: 16,
+    name: "上石神井こもれび公園",
+    shortName: "上石神井こもれび公園",
+    type: "噴水（ミスト系）",
+    emoji: "🌤️",
+    photo: null,
+    lat: 35.7420, lng: 139.6100,
+    address: "練馬区上石神井3-2-26",
+    period: "7月中旬〜8月末（例年）",
+    area: "西部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: true, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "ミスト状の水（定期噴出）",
+    crowd: "要確認",
+    note: "ミスト状の噴水施設。「こもれび」の名の通り木陰あり。上石神井駅近く。",
+    gmapQuery: "上石神井こもれび公園 練馬区上石神井3丁目"
+  },
+  {
+    id: 17,
+    name: "中新井公園",
+    shortName: "中新井公園",
+    type: "噴水・流れ（複合）",
+    emoji: "🏞️",
+    photo: null,
+    lat: 35.7270, lng: 139.6600,
+    address: "練馬区豊玉上2-18-1",
+    period: "7月中旬〜8月末（例年）",
+    area: "西部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "噴水と流れの複合",
+    crowd: "要確認",
+    note: "噴水と流れが両方楽しめる。練馬駅近く。",
+    gmapQuery: "中新井公園 練馬区豊玉上2丁目"
+  },
+  {
+    id: 18,
+    name: "大泉交通公園",
+    shortName: "大泉交通公園",
+    type: "噴水・流れ（複合）",
+    emoji: "🚲",
+    photo: null,
+    lat: 35.7540, lng: 139.5630,
+    address: "練馬区南大泉6-16-1",
+    period: "7月中旬〜8月末（例年）",
+    area: "西部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: true, stroller: true, nearStation: false,
+    ageRange: "0〜6歳向け",
+    depth: "噴水と流れの複合",
+    crowd: "交通公園と一緒に楽しめる",
+    note: "交通公園（ミニ自転車等）と水遊びが一緒に楽しめる。駐車場あり。",
+    gmapQuery: "大泉交通公園 練馬区南大泉6丁目"
+  },
+  {
+    id: 19,
+    name: "徳殿公園",
+    shortName: "徳殿公園",
+    type: "流れ",
+    emoji: "🌿",
+    photo: null,
+    lat: 35.7240, lng: 139.6600,
+    address: "練馬区豊玉南1-16-1",
+    period: "7月中旬〜8月末（例年）",
+    area: "西部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "流れ",
+    crowd: "要確認",
+    note: "",
+    gmapQuery: "徳殿公園 練馬区豊玉南1丁目"
+  },
+  {
+    id: 20,
+    name: "春日公園",
+    shortName: "春日公園",
+    type: "流れ",
+    emoji: "🌸",
+    photo: null,
+    lat: 35.7300, lng: 139.6680,
+    address: "練馬区春日町2-4-30",
+    period: "7月中旬〜8月末（例年）",
+    area: "西部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: false,
+    ageRange: "0〜6歳向け",
+    depth: "流れ",
+    crowd: "要確認",
+    note: "",
+    gmapQuery: "春日公園 練馬区春日町2丁目"
+  },
+  {
+    id: 21,
+    name: "ガラクタ公園\n（貫井公園）",
+    shortName: "ガラクタ公園",
+    type: "流れ",
+    emoji: "🎪",
+    photo: null,
+    lat: 35.7280, lng: 139.5890,
+    address: "練馬区貫井4-2-20",
+    period: "7月中旬〜8月末（例年）",
+    area: "西部管内",
+    diaper: null, toilet: null, changing: null,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: false,
+    ageRange: "0〜6歳向け",
+    depth: "流れ",
+    crowd: "要確認",
+    note: "ユニークなオブジェが多い個性的な公園。通称ガラクタ公園。",
+    gmapQuery: "ガラクタ公園 貫井公園 練馬区貫井4丁目"
+  }
+];
+
+// ─── FILTERS ─────────────────────────────────────────────────────────────────
+const FILTER_DEFS = [
+  { id: 'fountain', label: '⛲ 噴水あり',       test: s => s.type.includes('噴水') },
+  { id: 'flow',     label: '🌊 流れあり',       test: s => s.type.includes('流れ') },
+  { id: 'pond',     label: '🏊 池あり',         test: s => s.type.includes('池') },
+  { id: 'mist',     label: '💨 ミスト噴水',     test: s => s.type.includes('ミスト') },
+  { id: 'complex',  label: '✨ 複合施設',       test: s => s.type.includes('複合') },
+  { id: 'station',  label: '🚃 駅近',           test: s => s.nearStation === true },
+  { id: 'parking',  label: '🚗 駐車場あり',     test: s => s.parking === true },
+  { id: 'east',     label: '📍 東部管内',       test: s => s.area === '東部管内' },
+  { id: 'west',     label: '📍 西部管内',       test: s => s.area === '西部管内' },
+];
+
+const activeFilters = new Set();
+let map, markers = {};
+let selectedId = null;
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function boolLabel(val, okText = 'あり', ngText = 'なし', unknownText = '要確認') {
+  if (val === true)  return { text: okText,      cls: 'ok' };
+  if (val === false) return { text: ngText,       cls: 'ng' };
+  return               { text: unknownText, cls: 'unknown' };
+}
+
+function filteredSpots() {
+  if (activeFilters.size === 0) return SPOTS;
+  return SPOTS.filter(s => [...activeFilters].every(fid => {
+    const f = FILTER_DEFS.find(f => f.id === fid);
+    return f ? f.test(s) : true;
+  }));
+}
+
+// ─── MAP ─────────────────────────────────────────────────────────────────────
+function initMap() {
+  map = L.map('map', { zoomControl: true, attributionControl: false }).setView([35.742, 139.630], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+  L.control.attribution({ position: 'bottomright', prefix: '' })
+    .addAttribution('© <a href="https://osm.org/copyright" style="font-size:9px">OpenStreetMap</a>')
+    .addTo(map);
+  SPOTS.forEach(s => addMarker(s));
+}
+
+function addMarker(spot) {
+  const m = L.marker([spot.lat, spot.lng], { icon: makeIcon(spot, false) }).addTo(map);
+  m.on('click', () => openModal(spot.id));
+  markers[spot.id] = m;
+}
+
+function makeIcon(spot, active) {
+  return L.divIcon({
+    html: `<div style="background:${active ? '#0277BD' : '#29B6F6'};color:white;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 2px 8px rgba(0,0,0,0.28);border:2.5px solid white;">${spot.emoji}</div>`,
+    iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -20], className: ''
+  });
+}
+
+function refreshMarkers(visibleIds) {
+  SPOTS.forEach(s => {
+    const m = markers[s.id];
+    if (!m) return;
+    m.setOpacity(visibleIds.includes(s.id) ? 1 : 0.2);
+    m.setIcon(makeIcon(s, s.id === selectedId));
+  });
+}
+
+// ─── CARDS ───────────────────────────────────────────────────────────────────
+function renderCards() {
+  const spots = filteredSpots();
+  document.getElementById('spotCount').textContent = spots.length;
+  const list = document.getElementById('cardList');
+
+  if (spots.length === 0) {
+    list.innerHTML = `<div class="no-results"><div class="no-results-emoji">🔍</div><div class="no-results-text">条件に合うスポットが見つかりませんでした</div></div>`;
+    refreshMarkers([]);
+    return;
+  }
+
+  list.innerHTML = spots.map(s => cardHTML(s)).join('');
+  spots.forEach(s => {
+    document.getElementById(`card-${s.id}`).addEventListener('click', () => openModal(s.id));
+  });
+  refreshMarkers(spots.map(s => s.id));
+}
+
+function cardHTML(s) {
+  const infoItems = [
+    { emoji: '🚻', label: 'トイレ',   val: s.toilet,      ok: 'あり', ng: 'なし' },
+    { emoji: '🚗', label: '駐車場',   val: s.parking,     ok: 'あり', ng: 'なし' },
+    { emoji: '🌳', label: '日陰',     val: s.shade,       ok: 'あり', ng: '少ない' },
+    { emoji: '🚃', label: '駅近',     val: s.nearStation, ok: '近い',  ng: '車推奨' },
+  ];
+  const iconsHTML = infoItems.map(item => {
+    const r = boolLabel(item.val, item.ok, item.ng);
+    return `<div class="ci ${r.cls}"><span class="ci-emoji">${item.emoji}</span><span class="ci-label">${r.text}</span></div>`;
+  }).join('');
+
+  return `
+    <div class="card${selectedId === s.id ? ' highlighted' : ''}" id="card-${s.id}">
+      <div class="card-top">
+        <div class="card-name">${s.name.replace('\n', ' ')}</div>
+        <div class="card-type-badge">${s.type}</div>
+      </div>
+      <div class="card-meta">
+        <span class="card-meta-item">📍 ${s.area}</span>
+        <span class="card-meta-item">📅 ${s.period}</span>
+      </div>
+      <div class="card-icons">${iconsHTML}</div>
+    </div>`;
+}
+
+// ─── MODAL ───────────────────────────────────────────────────────────────────
+function openModal(id) {
+  const s = SPOTS.find(s => s.id === id);
+  if (!s) return;
+  selectedId = id;
+  map.panTo([s.lat, s.lng], { animate: true });
+  refreshMarkers(filteredSpots().map(s => s.id));
+  document.querySelectorAll('.card').forEach(el => el.classList.remove('highlighted'));
+  const card = document.getElementById(`card-${id}`);
+  if (card) { card.classList.add('highlighted'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+  document.getElementById('modalContent').innerHTML = modalHTML(s);
+  document.getElementById('modalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModalDirect();
+}
+function closeModalDirect() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+  selectedId = null;
+  document.querySelectorAll('.card').forEach(el => el.classList.remove('highlighted'));
+  refreshMarkers(filteredSpots().map(s => s.id));
+}
+
+function modalHTML(s) {
+  const infoRows = [
+    { emoji: '🚻', label: 'トイレ',           val: s.toilet,      ok: 'あり',  ng: 'なし' },
+    { emoji: '👗', label: '更衣室',           val: s.changing,    ok: 'あり',  ng: 'なし' },
+    { emoji: '🌳', label: '日陰',             val: s.shade,       ok: 'あり',  ng: '少ない' },
+    { emoji: '🚗', label: '駐車場',           val: s.parking,     ok: 'あり',  ng: 'なし' },
+    { emoji: '🚃', label: '駅近（徒歩圏）',   val: s.nearStation, ok: '近い',  ng: '車推奨' },
+    { emoji: '👶', label: 'ベビーカー',       val: s.stroller,    ok: '入れる', ng: '難しい' },
+  ];
+  const gridHTML = infoRows.map(r => {
+    const result = boolLabel(r.val, r.ok, r.ng);
+    return `<div class="info-cell"><div class="info-cell-top"><span class="info-cell-icon">${r.emoji}</span><span class="info-cell-label">${r.label}</span></div><div class="info-cell-value ${result.cls}">${result.text}</div></div>`;
+  }).join('');
+
+  const photoHTML = s.photo
+    ? `<div class="modal-photo"><img src="${s.photo}" alt="${s.shortName}" loading="lazy" onerror="this.parentElement.innerHTML='${s.emoji}'"></div>`
+    : `<div class="modal-photo">${s.emoji}</div>`;
+
+  return `
+    ${photoHTML}
+    <div class="modal-body">
+      <div class="modal-name">${s.name.replace('\n', '<br>')}</div>
+      <div class="modal-address">📍 ${s.address}</div>
+      <div class="official-badge">✅ 練馬区公式情報</div>
+
+      <div class="modal-period-box">
+        <div class="period-item">
+          <div class="period-label">📅 開設期間</div>
+          <div class="period-value">${s.period}</div>
+        </div>
+        <div class="period-item">
+          <div class="period-label">📍 管轄</div>
+          <div class="period-value">${s.area}</div>
+        </div>
+        <div class="period-item" style="grid-column:1/-1">
+          <div class="period-label">💧 水の種類</div>
+          <div class="period-value">${s.depth}</div>
+        </div>
+      </div>
+
+      <div class="section-title">施設情報</div>
+      <div class="info-grid">${gridHTML}</div>
+
+      <div class="section-title" style="margin-top:14px">年齢感・混雑</div>
+      <div class="info-grid">
+        <div class="info-cell" style="grid-column:1/-1">
+          <div class="info-cell-top"><span class="info-cell-icon">👦</span><span class="info-cell-label">対象年齢感</span></div>
+          <div class="info-cell-value warn">${s.ageRange}</div>
+        </div>
+        <div class="info-cell" style="grid-column:1/-1">
+          <div class="info-cell-top"><span class="info-cell-icon">👥</span><span class="info-cell-label">混雑傾向</span></div>
+          <div class="info-cell-value unknown">${s.crowd}</div>
+        </div>
+      </div>
+
+      ${s.note ? `<div class="note-box">${s.note}</div>` : ''}
+
+      <div class="btn-row">
+        <a class="btn btn-primary" href="https://maps.google.com/maps?q=${encodeURIComponent(s.gmapQuery)}" target="_blank" rel="noopener">📸 写真・場所を見る</a>
+        <a class="btn btn-directions" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(s.gmapQuery)}" target="_blank" rel="noopener">🗺️ 道順</a>
+      </div>
+      <div class="btn-row" style="margin-top:0">
+        <a class="btn btn-secondary" href="${OFFICIAL}" target="_blank" rel="noopener">🔗 練馬区公式サイトで確認</a>
+      </div>
+
+      <div class="disclaimer">
+        ⚠️ <strong>利用前に必ず公式サイトで最新情報を確認してください。</strong><br>
+        開設期間・営業時間は年度・天候・工事等により変更になる場合があります。<br>
+        🦶 <strong>裸足での入場はNG。</strong>水遊びに適したサンダル等をご着用ください（練馬区公式注意事項）。
+      </div>
+    </div>`;
+}
+
+// ─── FILTER UI ───────────────────────────────────────────────────────────────
+function renderFilters() {
+  const row = document.getElementById('filterRow');
+  row.innerHTML = FILTER_DEFS.map(f => `
+    <button class="filter-chip${activeFilters.has(f.id) ? ' active' : ''}"
+            id="fc-${f.id}"
+            onclick="toggleFilter('${f.id}')">${f.label}</button>
+  `).join('');
+}
+
+function toggleFilter(id) {
+  if (activeFilters.has(id)) activeFilters.delete(id);
+  else activeFilters.add(id);
+  renderFilters();
+  renderCards();
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderFilters();
+  initMap();
+  renderCards();
+});
+</script>
+</body>
+</html>

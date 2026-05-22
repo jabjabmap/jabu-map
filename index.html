@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>JABU MAP | じゃぶじゃぶ池ナビ 江戸川区</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --blue: #29B6F6;
+      --blue-dark: #0277BD;
+      --blue-light: #E1F5FE;
+      --blue-mid: #0288D1;
+      --green: #388E3C;
+      --green-bg: #E8F5E9;
+      --red: #C62828;
+      --red-bg: #FFEBEE;
+      --orange: #E65100;
+      --orange-bg: #FFF3E0;
+      --gray: #757575;
+      --gray-bg: #F5F5F5;
+      --text: #1A237E;
+      --text-main: #212121;
+      --bg: #F0FDFF;
+      --card: #FFFFFF;
+      --border: #B3E5FC;
+      --shadow: 0 2px 12px rgba(2,136,209,0.10);
+      --radius: 16px;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    html, body { height:100%; font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,sans-serif; background:var(--bg); color:var(--text-main); overflow-x:hidden; }
+
+    .header {
+      background: var(--blue-dark); color: white; padding: 10px 14px;
+      position: sticky; top: 0; z-index: 1000;
+      display: flex; align-items: center; gap: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .header-icon { font-size: 22px; }
+    .header-text { flex: 1; }
+    .header-title { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
+    .header-title span { color: #80DEEA; }
+    .header-sub { font-size: 10px; opacity: 0.8; margin-top: 1px; }
+    .header-area { background: rgba(255,255,255,0.18); padding: 4px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+
+    .season-banner { background: linear-gradient(90deg, #0288D1, #00ACC1); color: white; padding: 7px 14px; font-size: 12px; text-align: center; }
+
+    .filter-wrap { background: white; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    .filter-row { display: flex; flex-wrap: wrap; gap: 7px; }
+    .filter-chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 6px 12px; border-radius: 20px;
+      border: 1.5px solid var(--blue-mid); background: white;
+      color: var(--blue-dark); font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all 0.12s; user-select: none;
+    }
+    .filter-chip.active { background: var(--blue-mid); color: white; border-color: var(--blue-mid); }
+    .filter-chip:active { opacity: 0.7; }
+
+    #map { height: 40vh; min-height: 210px; max-height: 300px; width: 100%; }
+
+    .spot-header { padding: 10px 14px 4px; display: flex; align-items: baseline; gap: 6px; }
+    .spot-count { font-size: 22px; font-weight: 800; color: var(--blue-dark); }
+    .spot-label { font-size: 12px; color: var(--gray); }
+
+    .cards { padding: 4px 12px 80px; display: flex; flex-direction: column; gap: 10px; }
+    .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 13px 14px; cursor: pointer; border: 1.5px solid transparent; transition: border-color 0.15s, transform 0.1s; }
+    .card:active { transform: scale(0.985); }
+    .card.highlighted { border-color: var(--blue-mid); }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+    .card-name { font-size: 15px; font-weight: 700; color: var(--text-main); flex: 1; line-height: 1.35; }
+    .card-type-badge { font-size: 10px; background: var(--blue-light); color: var(--blue-dark); padding: 3px 7px; border-radius: 8px; margin-left: 8px; white-space: nowrap; font-weight: 600; flex-shrink: 0; }
+    .card-meta { font-size: 11px; color: var(--gray); display: flex; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 9px; }
+    .card-meta-item { display: flex; align-items: center; gap: 2px; }
+    .card-icons { display: flex; gap: 14px; flex-wrap: wrap; }
+    .ci { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+    .ci-emoji { font-size: 18px; line-height: 1; }
+    .ci-label { font-size: 9px; font-weight: 600; }
+    .ci.ok .ci-label { color: var(--green); }
+    .ci.ng .ci-label { color: var(--red); }
+    .ci.warn .ci-label { color: var(--orange); }
+    .ci.unknown .ci-label { color: #BDBDBD; }
+
+    .no-results { text-align: center; padding: 50px 20px; color: var(--gray); }
+    .no-results-emoji { font-size: 52px; margin-bottom: 12px; }
+    .no-results-text { font-size: 14px; }
+
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 3000; align-items: flex-end; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: white; border-radius: 22px 22px 0 0; width: 100%; max-height: 88vh; overflow-y: auto; overflow-x: hidden; animation: slideUp 0.22s cubic-bezier(.4,0,.2,1); padding-bottom: env(safe-area-inset-bottom, 20px); }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .modal-handle { width: 36px; height: 4px; background: #E0E0E0; border-radius: 2px; margin: 12px auto 0; }
+    .modal-close-row { display: flex; justify-content: flex-end; padding: 6px 14px 0; }
+    .modal-close { width: 30px; height: 30px; background: var(--gray-bg); border: none; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--gray); }
+
+    .modal-photo { width: 100%; height: 180px; background: linear-gradient(135deg, #B3E5FC, #E0F7FA); overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 64px; }
+    .modal-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .modal-body { padding: 0 16px; }
+    .modal-name { font-size: 20px; font-weight: 800; color: var(--text-main); margin: 12px 0 3px; line-height: 1.3; }
+    .modal-address { font-size: 12px; color: var(--gray); margin-bottom: 8px; }
+
+    .official-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; color: var(--green); background: var(--green-bg); padding: 3px 7px; border-radius: 6px; font-weight: 600; margin-bottom: 10px; }
+
+    .modal-period-box { background: var(--blue-light); border-radius: 10px; padding: 10px 12px; margin: 10px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .period-item { }
+    .period-label { font-size: 10px; color: var(--blue-dark); font-weight: 600; }
+    .period-value { font-size: 13px; font-weight: 700; color: var(--text-main); margin-top: 2px; }
+
+    .cleaning-box { background: #FFF8E1; border-radius: 10px; padding: 9px 12px; margin: 8px 0; font-size: 11px; color: #5D4037; line-height: 1.6; border-left: 3px solid #FFA726; }
+    .cleaning-title { font-weight: 700; font-size: 11px; margin-bottom: 3px; color: #E65100; }
+
+    .section-title { font-size: 11px; font-weight: 700; color: var(--gray); letter-spacing: 0.8px; text-transform: uppercase; margin: 14px 0 8px; }
+
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 4px; }
+    .info-cell { background: var(--gray-bg); border-radius: 10px; padding: 9px 10px; }
+    .info-cell-top { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; }
+    .info-cell-icon { font-size: 16px; }
+    .info-cell-label { font-size: 10px; color: var(--gray); font-weight: 600; }
+    .info-cell-value { font-size: 13px; font-weight: 700; }
+    .info-cell-value.ok { color: var(--green); }
+    .info-cell-value.ng { color: var(--red); }
+    .info-cell-value.warn { color: var(--orange); }
+    .info-cell-value.unknown { color: #BDBDBD; }
+
+    .note-box { background: #F8FFFE; border-left: 3px solid var(--blue); border-radius: 0 8px 8px 0; padding: 9px 11px; font-size: 13px; color: var(--text-main); line-height: 1.55; margin: 10px 0; }
+
+    .btn-row { display: flex; gap: 8px; margin: 14px 0 10px; }
+    .btn { flex: 1; padding: 14px 10px; border: none; border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 5px; transition: opacity 0.12s; }
+    .btn:active { opacity: 0.75; }
+    .btn-primary { background: var(--blue-dark); color: white; }
+    .btn-directions { background: #00897B; color: white; }
+    .btn-secondary { background: var(--gray-bg); color: var(--text-main); }
+
+    .disclaimer { background: #FFF8E1; border-radius: 10px; padding: 10px 12px; margin: 4px 0 16px; font-size: 11px; color: #5D4037; line-height: 1.55; border-left: 3px solid #FFA726; }
+
+    .leaflet-container { font-family: inherit; }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-icon">💧</div>
+  <div class="header-text">
+    <div class="header-title">JABU <span>MAP</span></div>
+    <div class="header-sub">じゃぶじゃぶ池ナビ</div>
+  </div>
+  <div class="header-area">江戸川区</div>
+</header>
+
+<div class="season-banner">
+  🌊 開設期間：7月1日〜9月15日（令和7年度実績）｜ おむつNG・更衣室なし（全公園共通）
+</div>
+
+<div class="filter-wrap">
+  <div class="filter-row" id="filterRow"></div>
+</div>
+
+<div id="map"></div>
+
+<div class="spot-header">
+  <span class="spot-count" id="spotCount">0</span>
+  <span class="spot-label">件表示中</span>
+</div>
+
+<div class="cards" id="cardList"></div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-close-row">
+      <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    </div>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ─── DATA（出典：江戸川区公式HP 更新日2026-01-15）────────────────────────────
+// 全スポット共通：おむつNG・更衣室なし・開設7/1〜9/15
+const BASE = "https://www.city.edogawa.tokyo.jp";
+const OFFICIAL = BASE + "/e066/kuseijoho/gaiyo/shisetsuguide/bunya/koendobutsuen/jabjab.html";
+
+const SPOTS = [
+  {
+    id: 1,
+    name: "小松川境川親水公園",
+    shortName: "小松川境川",
+    type: "流れ（親水公園）",
+    emoji: "🌊",
+    photo: BASE + "/images/8380/koma_1.jpg",
+    lat: 35.7060, lng: 139.8620,
+    address: "本一色1丁目34番から西小松川町",
+    scale: "全線3,930m",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/8-11、7/22-25、8/5-8、8/26-29、9/9-12",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: true, parking: null, stroller: true, nearStation: false,
+    ageRange: "2〜6歳向け（流れ注意）",
+    depth: "浅い流れ（濾過自然水）",
+    crowd: "要確認",
+    note: "区内唯一の自然水（濾過済）。全線3,930mと圧倒的なスケール。清掃期間中は利用制限あり。流れがあるため目を離さないこと。",
+    gmapQuery: "小松川境川親水公園 江戸川区本一色"
+  },
+  {
+    id: 2,
+    name: "一之江境川親水公園\n上流部（かんたんの里前）",
+    shortName: "一之江境川・上流",
+    type: "じゃぶじゃぶ池",
+    emoji: "💧",
+    photo: BASE + "/images/8380/ichinoesakaigawajouryu_1.jpg",
+    lat: 35.6920, lng: 139.8550,
+    address: "一之江5丁目12番地先",
+    scale: "240㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "清掃なし（濾過設備あり・常時きれい）",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: null,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "濾過設備があるため清掃休止なし。かんたんの里のすぐ前。常時きれいな水質が期待できる。",
+    gmapQuery: "一之江境川親水公園 一之江5丁目 江戸川区"
+  },
+  {
+    id: 3,
+    name: "一之江境川親水公園\n中流部（松江五中前）",
+    shortName: "一之江境川・中流",
+    type: "じゃぶじゃぶ池",
+    emoji: "💧",
+    photo: BASE + "/images/8380/chuuryuubu_1.jpg",
+    lat: 35.6830, lng: 139.8530,
+    address: "一之江6丁目18番地先",
+    scale: "355㎡（3地点で最大）",
+    period: "7月1日〜9月15日",
+    cleaningDays: "清掃なし（濾過設備あり・常時きれい）",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: null,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "355㎡と一之江境川エリア最大。松江第五中学校前。濾過設備あり・清掃休止なし。",
+    gmapQuery: "一之江境川親水公園 一之江6丁目 江戸川区"
+  },
+  {
+    id: 4,
+    name: "一之江境川親水公園\n下流部（二之江さくら公園前）",
+    shortName: "一之江境川・下流",
+    type: "じゃぶじゃぶ池",
+    emoji: "💧",
+    photo: BASE + "/images/8380/karyuubu_1.jpg",
+    lat: 35.6760, lng: 139.8610,
+    address: "二之江町1371番地先",
+    scale: "145㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "清掃なし（濾過設備あり・常時きれい）",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: null,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "二之江さくら公園のすぐ前。濾過設備あり・清掃休止なし。",
+    gmapQuery: "一之江境川親水公園 二之江町 江戸川区"
+  },
+  {
+    id: 5,
+    name: "東小松川南公園",
+    shortName: "東小松川南公園",
+    type: "じゃぶじゃぶ池",
+    emoji: "🌿",
+    photo: BASE + "/images/8380/dscf8759_1.jpg",
+    lat: 35.7100, lng: 139.8570,
+    address: "東小松川4丁目31番1号",
+    scale: "215㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/1、4、8、11、15、18、23、25、29、8/1、5、8、13、15、19、22、26、29、9/2、5、9、12",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: null,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "",
+    gmapQuery: "東小松川南公園 東小松川4丁目 江戸川区"
+  },
+  {
+    id: 6,
+    name: "逆井公園",
+    shortName: "逆井公園",
+    type: "じゃぶじゃぶ池",
+    emoji: "🌸",
+    photo: BASE + "/images/8380/sakai_1.jpg",
+    lat: 35.6950, lng: 139.8400,
+    address: "平井1丁目24番6号",
+    scale: "57㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/1、4、8、11、15、18、23、25、29、8/1、5、8、13、15、19、22、26、29、9/2、5、9、12",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: null,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "",
+    gmapQuery: "逆井公園 平井1丁目 江戸川区"
+  },
+  {
+    id: 7,
+    name: "平井七丁目\n第三児童遊園",
+    shortName: "平井七丁目第三児童遊園",
+    type: "じゃぶじゃぶ池",
+    emoji: "🎠",
+    photo: BASE + "/images/8380/hirai7_1.jpg",
+    lat: 35.6840, lng: 139.8430,
+    address: "平井7丁目3番3号",
+    scale: "36㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/1、4、8、11、15、18、23、25、29、8/1、5、8、13、15、19、22、26、29、9/2、5、9、12",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: null,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "小規模・穴場",
+    note: "36㎡と小規模。地元ファミリー向け穴場スポット。",
+    gmapQuery: "平井七丁目第三児童遊園 平井7丁目 江戸川区"
+  },
+  {
+    id: 8,
+    name: "古川親水公園\n上流部（古川けやき公園前）",
+    shortName: "古川公園・上流",
+    type: "じゃぶじゃぶ池",
+    emoji: "🍃",
+    photo: BASE + "/images/8380/furukawakeyaki.jpg",
+    lat: 35.6590, lng: 139.8820,
+    address: "江戸川6丁目7番地先",
+    scale: "155㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/7-8、7/24-25、8/6-7、8/21-22、9/1-3",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: true, parking: null, stroller: true, nearStation: null,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "古川けやき公園前。けやき並木があり日陰に期待できる。",
+    gmapQuery: "古川親水公園 古川けやき公園前 江戸川区江戸川6丁目"
+  },
+  {
+    id: 9,
+    name: "古川親水公園\n下流部（野瀬文橋近辺）",
+    shortName: "古川公園・下流",
+    type: "じゃぶじゃぶ池",
+    emoji: "🍃",
+    photo: BASE + "/images/8380/nose.jpg",
+    lat: 35.6550, lng: 139.8780,
+    address: "江戸川6丁目36番地先",
+    scale: "125㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/7-8、7/24-25、8/6-7、8/21-22、9/1-3",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: null,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "野瀬文橋の近辺。",
+    gmapQuery: "古川親水公園 野瀬文橋付近 江戸川区江戸川6丁目"
+  },
+  {
+    id: 10,
+    name: "新長島川親水公園",
+    shortName: "新長島川親水公園",
+    type: "じゃぶじゃぶ池",
+    emoji: "🏞️",
+    photo: BASE + "/images/8380/img_9237.jpg",
+    lat: 35.6540, lng: 139.8610,
+    address: "清新町2丁目8番先",
+    scale: "161㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/11、7/25、8/8、8/18、9/2",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "清掃日が少なく使いやすい。葛西エリア・駅近。",
+    gmapQuery: "新長島川親水公園 清新町2丁目 江戸川区"
+  },
+  {
+    id: 11,
+    name: "葛西親水四季の道",
+    shortName: "葛西親水四季の道",
+    type: "じゃぶじゃぶ池",
+    emoji: "🌴",
+    photo: BASE + "/images/8380/dscn1067_1.jpg",
+    lat: 35.6610, lng: 139.8660,
+    address: "西葛西6丁目29番先",
+    scale: "111㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/17、7/25、7/31、8/12、8/22、8/29、9/4、9/9",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "西葛西駅近。清掃日が月に数回程度で利用しやすい。",
+    gmapQuery: "葛西親水四季の道 西葛西6丁目 江戸川区"
+  },
+  {
+    id: 12,
+    name: "船堀五丁目\n第二児童遊園",
+    shortName: "船堀五丁目第二児童遊園",
+    type: "じゃぶじゃぶ池",
+    emoji: "🎠",
+    photo: BASE + "/images/8380/funabori5_1.jpg",
+    lat: 35.6750, lng: 139.8690,
+    address: "船堀5丁目3番8号",
+    scale: "26㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/17、8/4、8/8、8/18、8/29、9/4",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "小規模・穴場",
+    note: "26㎡と小規模。清掃日が少なく穴場。船堀駅近。",
+    gmapQuery: "船堀五丁目第二児童遊園 船堀5丁目 江戸川区"
+  },
+  {
+    id: 13,
+    name: "西船堀公園",
+    shortName: "西船堀公園",
+    type: "じゃぶじゃぶ池",
+    emoji: "⛵",
+    photo: BASE + "/images/8380/nishifunabori_1.jpg",
+    lat: 35.6800, lng: 139.8750,
+    address: "船堀2丁目7番14号",
+    scale: "110㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/8、11、14、17、22、25、28、31、8/4、8、12、14、18、22、26、29、9/1、4、9、12",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "船堀駅近。清掃頻度が高め（週2〜3回）。",
+    gmapQuery: "西船堀公園 船堀2丁目 江戸川区"
+  },
+  {
+    id: 14,
+    name: "行船公園（噴水池）",
+    shortName: "行船公園",
+    type: "噴水池",
+    emoji: "⛲",
+    photo: BASE + "/images/8380/img_3936_1.jpg",
+    lat: 35.6600, lng: 139.8720,
+    address: "北葛西3丁目2番1号",
+    scale: "113㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/11、7/28、8/4、8/14、8/22、9/1",
+    diaper: false, toilet: true, changing: false,
+    tent: null, shade: true, parking: true, stroller: true, nearStation: null,
+    ageRange: "0〜6歳向け",
+    depth: "噴水（水中機器あり注意）",
+    crowd: "要確認",
+    note: "噴水設備あり。水中に電気機器があるため噴出口に近づかないこと。清掃日が少なく利用しやすい。",
+    gmapQuery: "行船公園 北葛西3丁目 江戸川区"
+  },
+  {
+    id: 15,
+    name: "宇喜田中央公園",
+    shortName: "宇喜田中央公園",
+    type: "じゃぶじゃぶ池",
+    emoji: "🌻",
+    photo: BASE + "/images/8380/dscn1073_1.jpg",
+    lat: 35.6580, lng: 139.8680,
+    address: "北葛西4丁目15番1号",
+    scale: "268㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/8、11、14、17、22、25、28、31、8/4、8、12、14、18、22、26、29、9/1、4、9、12",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: null,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "268㎡と大きめ。",
+    gmapQuery: "宇喜田中央公園 北葛西4丁目 江戸川区"
+  },
+  {
+    id: 16,
+    name: "長島一号公園",
+    shortName: "長島一号公園",
+    type: "じゃぶじゃぶ池",
+    emoji: "🌺",
+    photo: BASE + "/images/8380/ngashima_1.jpg",
+    lat: 35.6640, lng: 139.8760,
+    address: "中葛西3丁目21番1号",
+    scale: "341㎡（葛西エリア最大級）",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/8、11、14、17、22、25、28、31、8/4、8、12、14、18、22、26、29、9/1、4、9、12",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: null,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "341㎡と葛西エリア最大級のじゃぶじゃぶ池。",
+    gmapQuery: "長島一号公園 中葛西3丁目 江戸川区"
+  },
+  {
+    id: 17,
+    name: "葛西東公園",
+    shortName: "葛西東公園",
+    type: "じゃぶじゃぶ池",
+    emoji: "🏞️",
+    photo: BASE + "/images/8380/kasaihigasi_1.jpg",
+    lat: 35.6570, lng: 139.8870,
+    address: "東葛西5丁目26番1号",
+    scale: "139㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "9/12（令和7年度実績）",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: null,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "令和7年度は清掃日が少なかった実績あり。最新情報は公式確認を。",
+    gmapQuery: "葛西東公園 東葛西5丁目 江戸川区"
+  },
+  {
+    id: 18,
+    name: "虹の広場\n（総合レクリエーション公園内）",
+    shortName: "虹の広場",
+    type: "噴水・じゃぶじゃぶ池",
+    emoji: "🌈",
+    photo: BASE + "/images/8380/niji_1.jpg",
+    lat: 35.6630, lng: 139.8620,
+    address: "西葛西7丁目2番（総合レクリエーション公園内）",
+    scale: "1,080㎡（区内最大）",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/17、8/7、8/21（清掃少なく利用しやすい）",
+    diaper: false, toilet: true, changing: false,
+    tent: null, shade: null, parking: true, stroller: true, nearStation: false,
+    ageRange: "0〜6歳向け",
+    depth: "噴水＋じゃぶじゃぶ池",
+    crowd: "人気スポット・土日は混みやすい",
+    note: "区内最大1,080㎡。噴水と池が両方楽しめる。清掃日が少なく使いやすい。総合レクリエーション公園内で駐車場・トイレ完備。",
+    gmapQuery: "虹の広場 総合レクリエーション公園 西葛西7丁目 江戸川区"
+  },
+  {
+    id: 19,
+    name: "さざなみ公園",
+    shortName: "さざなみ公園",
+    type: "じゃぶじゃぶ池",
+    emoji: "🌊",
+    photo: BASE + "/images/8380/sazanami_1.jpg",
+    lat: 35.6540, lng: 139.8590,
+    address: "清新町2丁目8番5号",
+    scale: "120㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/8、11、14、17、22、25、28、31、8/4、8、12、14、18、22、26、29、9/1、4、9、12",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "葛西エリア・駅近。",
+    gmapQuery: "さざなみ公園 清新町2丁目 江戸川区"
+  },
+  {
+    id: 20,
+    name: "フラワーガーデン",
+    shortName: "フラワーガーデン",
+    type: "噴水池・流れ",
+    emoji: "🌹",
+    photo: BASE + "/images/8380/41_1.jpg",
+    lat: 35.6600, lng: 139.8600,
+    address: "南葛西4丁目9番（総合レクリエーション公園内）",
+    scale: "590㎡",
+    period: "⚠️ 令和7年度は工事中・使用不可",
+    cleaningDays: "令和8年度の開設状況は公式確認要",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: true, stroller: true, nearStation: false,
+    ageRange: "0〜6歳向け（開設時）",
+    depth: "噴水池および流れ（浅瀬）",
+    crowd: "リニューアル後に要確認",
+    note: "令和7年度はリニューアル工事中のため使用不可。令和8年度（2026年）の開設状況は公式サイトで必ず確認を。バラに囲まれた景観が美しい公園。",
+    gmapQuery: "フラワーガーデン 総合レクリエーション公園 南葛西4丁目 江戸川区"
+  },
+  {
+    id: 21,
+    name: "えどがわ金魚公園",
+    shortName: "えどがわ金魚公園",
+    type: "じゃぶじゃぶ池",
+    emoji: "🐟",
+    photo: BASE + "/images/8380/kingyo.jpg",
+    lat: 35.6640, lng: 139.8790,
+    address: "春江町5丁目26番",
+    scale: "46㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/14、8/4、8/8、8/18、9/4",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: null,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "金魚をテーマにしたユニークな公園。清掃日少なめ。",
+    gmapQuery: "えどがわ金魚公園 春江町5丁目 江戸川区"
+  },
+  {
+    id: 22,
+    name: "小岩の森公園",
+    shortName: "小岩の森公園",
+    type: "じゃぶじゃぶ池",
+    emoji: "🌲",
+    photo: BASE + "/images/8380/koiwanomori_1.jpg",
+    lat: 35.7270, lng: 139.8930,
+    address: "北小岩3丁目20番3号",
+    scale: "130㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/3、7、14、17、22、24、28、31、8/4、7、12、14、18、21、25、28、9/1、4、8、11、17",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: true, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "小岩エリア・駅近。森の名前の通り木々が多い環境。",
+    gmapQuery: "小岩の森公園 北小岩3丁目 江戸川区"
+  },
+  {
+    id: 23,
+    name: "上小岩せせらぎ公園",
+    shortName: "上小岩せせらぎ公園",
+    type: "じゃぶじゃぶ池（せせらぎ）",
+    emoji: "🌿",
+    photo: BASE + "/images/8380/kitakoiwa6_1.jpg",
+    lat: 35.7300, lng: 139.8950,
+    address: "北小岩6丁目52番7号",
+    scale: "40㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/3、10、17、24、31、8/7、14、21、28、9/4、11、16",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: true,
+    ageRange: "0〜6歳向け",
+    depth: "せせらぎ（小さな流れ）",
+    crowd: "小規模・穴場",
+    note: "せせらぎ（小川）が楽しめる珍しいスポット。40㎡と小規模。",
+    gmapQuery: "上小岩せせらぎ公園 北小岩6丁目 江戸川区"
+  },
+  {
+    id: 24,
+    name: "東小岩滝児童遊園",
+    shortName: "東小岩滝児童遊園",
+    type: "滝",
+    emoji: "💦",
+    photo: BASE + "/images/8380/koiuwataki_1.jpg",
+    lat: 35.7250, lng: 139.8930,
+    address: "東小岩5丁目8番10号",
+    scale: "25㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/22、8/25、9/16",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: true,
+    ageRange: "2〜6歳向け",
+    depth: "滝（足元注意）",
+    crowd: "小規模・穴場",
+    note: "「滝」が楽しめる区内唯一の珍スポット。清掃日が非常に少なく穴場。",
+    gmapQuery: "東小岩滝児童遊園 東小岩5丁目 江戸川区"
+  },
+  {
+    id: 25,
+    name: "瀬戸口公園",
+    shortName: "瀬戸口公園",
+    type: "じゃぶじゃぶ池",
+    emoji: "🌺",
+    photo: BASE + "/images/8380/setoguchi_1.jpg",
+    lat: 35.7010, lng: 139.9200,
+    address: "新堀1丁目5番1号",
+    scale: "205㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/3、10、14、17、22、24、28、31、8/4、7、12、14、18、21、25、28、9/1、4、8、11、17",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: null,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "篠崎エリア。205㎡とゆったり。",
+    gmapQuery: "瀬戸口公園 新堀1丁目 江戸川区"
+  },
+  {
+    id: 26,
+    name: "江戸川一丁目\n第二児童遊園",
+    shortName: "江戸川一丁目第二児童遊園",
+    type: "じゃぶじゃぶ池",
+    emoji: "🎠",
+    photo: BASE + "/images/8380/img_0058_1.jpg",
+    lat: 35.6590, lng: 139.8870,
+    address: "江戸川1丁目42番10号",
+    scale: "90㎡",
+    period: "7月1日〜9月15日",
+    cleaningDays: "7/3、7、10、14、17、22、24、28、31、8/4、7、12、14、18、21、25、28、9/4、8、11、16",
+    diaper: false, toilet: null, changing: false,
+    tent: null, shade: null, parking: null, stroller: true, nearStation: null,
+    ageRange: "0〜6歳向け",
+    depth: "要確認",
+    crowd: "要確認",
+    note: "",
+    gmapQuery: "江戸川一丁目第二児童遊園 江戸川1丁目 江戸川区"
+  }
+];
+
+// ─── FILTERS ─────────────────────────────────────────────────────────────────
+const FILTER_DEFS = [
+  { id: 'fountain',  label: '⛲ 噴水あり',       test: s => s.type.includes('噴水') },
+  { id: 'flow',      label: '🌊 流れ・滝',       test: s => s.type.includes('流れ') || s.type.includes('滝') || s.type.includes('せせらぎ') },
+  { id: 'large',     label: '📏 広め(100㎡↑)',   test: s => { const m = parseInt(s.scale); return m >= 100; } },
+  { id: 'fewclean',  label: '🧹 清掃少ない',     test: s => s.cleaningDays && s.cleaningDays.includes('清掃なし') },
+  { id: 'parking',   label: '🚗 駐車場あり',     test: s => s.parking === true },
+  { id: 'toilet',    label: '🚻 トイレあり',     test: s => s.toilet === true },
+  { id: 'station',   label: '🚃 駅近',           test: s => s.nearStation === true },
+];
+
+const activeFilters = new Set();
+let map, markers = {};
+let selectedId = null;
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function boolLabel(val, okText = 'あり', ngText = 'なし', unknownText = '要確認') {
+  if (val === true)  return { text: okText,      cls: 'ok' };
+  if (val === false) return { text: ngText,       cls: 'ng' };
+  return               { text: unknownText, cls: 'unknown' };
+}
+
+function filteredSpots() {
+  if (activeFilters.size === 0) return SPOTS;
+  return SPOTS.filter(s => [...activeFilters].every(fid => {
+    const f = FILTER_DEFS.find(f => f.id === fid);
+    return f ? f.test(s) : true;
+  }));
+}
+
+// ─── MAP ─────────────────────────────────────────────────────────────────────
+function initMap() {
+  map = L.map('map', { zoomControl: true, attributionControl: false }).setView([35.682, 139.873], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+  L.control.attribution({ position: 'bottomright', prefix: '' })
+    .addAttribution('© <a href="https://osm.org/copyright" style="font-size:9px">OpenStreetMap</a>')
+    .addTo(map);
+  SPOTS.forEach(s => addMarker(s));
+}
+
+function addMarker(spot) {
+  const m = L.marker([spot.lat, spot.lng], { icon: makeIcon(spot, false) }).addTo(map);
+  m.on('click', () => openModal(spot.id));
+  markers[spot.id] = m;
+}
+
+function makeIcon(spot, active) {
+  return L.divIcon({
+    html: `<div style="background:${active ? '#0277BD' : '#29B6F6'};color:white;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 2px 8px rgba(0,0,0,0.28);border:2.5px solid white;">${spot.emoji}</div>`,
+    iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -20], className: ''
+  });
+}
+
+function refreshMarkers(visibleIds) {
+  SPOTS.forEach(s => {
+    const m = markers[s.id];
+    if (!m) return;
+    m.setOpacity(visibleIds.includes(s.id) ? 1 : 0.2);
+    m.setIcon(makeIcon(s, s.id === selectedId));
+  });
+}
+
+// ─── CARDS ───────────────────────────────────────────────────────────────────
+function renderCards() {
+  const spots = filteredSpots();
+  document.getElementById('spotCount').textContent = spots.length;
+  const list = document.getElementById('cardList');
+
+  if (spots.length === 0) {
+    list.innerHTML = `<div class="no-results"><div class="no-results-emoji">🔍</div><div class="no-results-text">条件に合うスポットが見つかりませんでした</div></div>`;
+    refreshMarkers([]);
+    return;
+  }
+
+  list.innerHTML = spots.map(s => cardHTML(s)).join('');
+  spots.forEach(s => {
+    document.getElementById(`card-${s.id}`).addEventListener('click', () => openModal(s.id));
+  });
+  refreshMarkers(spots.map(s => s.id));
+}
+
+function cardHTML(s) {
+  const infoItems = [
+    { emoji: '🚻', label: 'トイレ',   val: s.toilet,      ok: 'あり', ng: 'なし' },
+    { emoji: '🚗', label: '駐車場',   val: s.parking,     ok: 'あり', ng: 'なし' },
+    { emoji: '🌳', label: '日陰',     val: s.shade,       ok: 'あり', ng: '少ない' },
+    { emoji: '🚃', label: '駅近',     val: s.nearStation, ok: '近い',  ng: '車推奨' },
+  ];
+  const iconsHTML = infoItems.map(item => {
+    const r = boolLabel(item.val, item.ok, item.ng);
+    return `<div class="ci ${r.cls}"><span class="ci-emoji">${item.emoji}</span><span class="ci-label">${r.text}</span></div>`;
+  }).join('');
+
+  return `
+    <div class="card${selectedId === s.id ? ' highlighted' : ''}" id="card-${s.id}">
+      <div class="card-top">
+        <div class="card-name">${s.name.replace('\n', ' ')}</div>
+        <div class="card-type-badge">${s.type}</div>
+      </div>
+      <div class="card-meta">
+        <span class="card-meta-item">📐 ${s.scale}</span>
+        <span class="card-meta-item">📅 ${s.period}</span>
+      </div>
+      <div class="card-icons">${iconsHTML}</div>
+    </div>`;
+}
+
+// ─── MODAL ───────────────────────────────────────────────────────────────────
+function openModal(id) {
+  const s = SPOTS.find(s => s.id === id);
+  if (!s) return;
+  selectedId = id;
+  map.panTo([s.lat, s.lng], { animate: true });
+  refreshMarkers(filteredSpots().map(s => s.id));
+  document.querySelectorAll('.card').forEach(el => el.classList.remove('highlighted'));
+  const card = document.getElementById(`card-${id}`);
+  if (card) { card.classList.add('highlighted'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+  document.getElementById('modalContent').innerHTML = modalHTML(s);
+  document.getElementById('modalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModalDirect();
+}
+function closeModalDirect() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+  selectedId = null;
+  document.querySelectorAll('.card').forEach(el => el.classList.remove('highlighted'));
+  refreshMarkers(filteredSpots().map(s => s.id));
+}
+
+function modalHTML(s) {
+  const infoRows = [
+    { emoji: '🍼', label: 'おむつ持込',         val: s.diaper,   ok: 'OK',    ng: 'NG（公式ルール）' },
+    { emoji: '🚻', label: 'トイレ',             val: s.toilet,   ok: 'あり',  ng: 'なし' },
+    { emoji: '👗', label: '更衣室',             val: s.changing, ok: 'あり',  ng: 'なし（公式ルール）' },
+    { emoji: '🌳', label: '日陰',               val: s.shade,    ok: 'あり',  ng: '少ない' },
+    { emoji: '🚗', label: '駐車場',             val: s.parking,  ok: 'あり',  ng: 'なし' },
+    { emoji: '🚃', label: '駅近（徒歩圏）',     val: s.nearStation, ok: '近い', ng: '車推奨' },
+  ];
+  const gridHTML = infoRows.map(r => {
+    const result = boolLabel(r.val, r.ok, r.ng);
+    return `<div class="info-cell"><div class="info-cell-top"><span class="info-cell-icon">${r.emoji}</span><span class="info-cell-label">${r.label}</span></div><div class="info-cell-value ${result.cls}">${result.text}</div></div>`;
+  }).join('');
+
+  const photoHTML = s.photo
+    ? `<div class="modal-photo"><img src="${s.photo}" alt="${s.shortName}" loading="lazy"></div>`
+    : `<div class="modal-photo">${s.emoji}</div>`;
+
+  return `
+    ${photoHTML}
+    <div class="modal-body">
+      <div class="modal-name">${s.name.replace('\n', '<br>')}</div>
+      <div class="modal-address">📍 ${s.address}</div>
+      <div class="official-badge">✅ 江戸川区公式情報（${s.lastChecked || '2026-01-15'}）</div>
+
+      <div class="modal-period-box">
+        <div class="period-item">
+          <div class="period-label">📅 開設期間</div>
+          <div class="period-value">${s.period}</div>
+        </div>
+        <div class="period-item">
+          <div class="period-label">📐 規模</div>
+          <div class="period-value">${s.scale}</div>
+        </div>
+        <div class="period-item" style="grid-column:1/-1">
+          <div class="period-label">💧 水の特徴</div>
+          <div class="period-value">${s.depth}</div>
+        </div>
+      </div>
+
+      <div class="cleaning-box">
+        <div class="cleaning-title">🧹 清掃日（清掃日は利用不可）</div>
+        ${s.cleaningDays}
+      </div>
+
+      <div class="section-title">施設情報</div>
+      <div class="info-grid">${gridHTML}</div>
+
+      <div class="section-title" style="margin-top:14px">年齢感・混雑</div>
+      <div class="info-grid">
+        <div class="info-cell" style="grid-column:1/-1">
+          <div class="info-cell-top"><span class="info-cell-icon">👦</span><span class="info-cell-label">対象年齢感</span></div>
+          <div class="info-cell-value warn">${s.ageRange}</div>
+        </div>
+        <div class="info-cell" style="grid-column:1/-1">
+          <div class="info-cell-top"><span class="info-cell-icon">👥</span><span class="info-cell-label">混雑傾向</span></div>
+          <div class="info-cell-value unknown">${s.crowd}</div>
+        </div>
+      </div>
+
+      ${s.note ? `<div class="note-box">${s.note}</div>` : ''}
+
+      <div class="btn-row">
+        <a class="btn btn-primary" href="https://maps.google.com/maps?q=${encodeURIComponent(s.gmapQuery)}" target="_blank" rel="noopener">📸 写真・場所を見る</a>
+        <a class="btn btn-directions" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(s.gmapQuery)}" target="_blank" rel="noopener">🗺️ 道順</a>
+      </div>
+      <div class="btn-row" style="margin-top:0">
+        <a class="btn btn-secondary" href="${OFFICIAL}" target="_blank" rel="noopener">🔗 江戸川区公式サイトで確認</a>
+      </div>
+
+      <div class="disclaimer">
+        ⚠️ <strong>利用前に必ず公式サイトで最新情報を確認してください。</strong><br>
+        清掃日・開設期間は工事・天候等により変更になる場合があります。<br>
+        おむつの取れていないお子様のご利用はご遠慮ください（全公園共通）。更衣室はありません。
+      </div>
+    </div>`;
+}
+
+// ─── FILTER UI ───────────────────────────────────────────────────────────────
+function renderFilters() {
+  const row = document.getElementById('filterRow');
+  row.innerHTML = FILTER_DEFS.map(f => `
+    <button class="filter-chip${activeFilters.has(f.id) ? ' active' : ''}"
+            id="fc-${f.id}"
+            onclick="toggleFilter('${f.id}')">${f.label}</button>
+  `).join('');
+}
+
+function toggleFilter(id) {
+  if (activeFilters.has(id)) activeFilters.delete(id);
+  else activeFilters.add(id);
+  renderFilters();
+  renderCards();
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderFilters();
+  initMap();
+  renderCards();
+});
+</script>
+</body>
+</html>
