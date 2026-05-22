@@ -124,6 +124,14 @@
     .today-badge.cleaning { background: var(--red-bg);   color: var(--red); }
     .today-badge.offseason { background: var(--gray-bg);  color: var(--gray); }
 
+    .modal-photo-wrap { width: 100%; height: 180px; position: relative; overflow: hidden; background: linear-gradient(135deg, #B3E5FC, #E0F7FA); display: flex; align-items: center; justify-content: center; font-size: 64px; }
+    .modal-photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .weather-overlay { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.50); color: white; padding: 5px 11px; border-radius: 20px; font-size: 13px; font-weight: 700; backdrop-filter: blur(4px); pointer-events: none; }
+    .weather-main { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .weather-main-emoji { font-size: 72px; line-height: 1; }
+    .weather-main-temp { font-size: 26px; font-weight: 800; color: white; text-shadow: 0 1px 5px rgba(0,0,0,.4); }
+    .weather-main-label { font-size: 13px; color: rgba(255,255,255,.88); font-weight: 600; }
+
     .leaflet-container { font-family: inherit; }
   </style>
 </head>
@@ -711,6 +719,7 @@ function openModal(id) {
   document.getElementById('modalContent').innerHTML = modalHTML(s);
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+  loadWeatherForModal(s);
 }
 
 function closeModal(e) {
@@ -722,6 +731,44 @@ function closeModalDirect() {
   selectedId = null;
   document.querySelectorAll('.card').forEach(el => el.classList.remove('highlighted'));
   refreshMarkers(filteredSpots().map(s => s.id));
+}
+
+// ─── WEATHER ─────────────────────────────────────────────────────────────────
+function wmoToInfo(code) {
+  if (code === 0)  return { emoji: '☀️',  label: '快晴' };
+  if (code <= 2)   return { emoji: '🌤️', label: '晴れ' };
+  if (code === 3)  return { emoji: '☁️',  label: '曇り' };
+  if (code <= 48)  return { emoji: '🌫️', label: '霧' };
+  if (code <= 57)  return { emoji: '🌦️', label: '霧雨' };
+  if (code <= 67)  return { emoji: '🌧️', label: '雨' };
+  if (code <= 77)  return { emoji: '🌨️', label: '雪' };
+  if (code <= 82)  return { emoji: '🌦️', label: 'にわか雨' };
+  if (code <= 86)  return { emoji: '🌨️', label: 'にわか雪' };
+  return               { emoji: '⛈️',  label: '雷雨' };
+}
+
+async function loadWeatherForModal(spot) {
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${spot.lat}&longitude=${spot.lng}&current=weather_code,temperature_2m&timezone=Asia%2FTokyo`;
+    const res = await fetch(url);
+    const { current } = await res.json();
+    const w = wmoToInfo(current.weather_code);
+    const temp = Math.round(current.temperature_2m);
+    const el = document.getElementById(`weather-${spot.id}`);
+    if (!el) return;
+    if (spot.photo) {
+      el.textContent = `${w.emoji} ${temp}℃`;
+    } else {
+      el.innerHTML = `<div class="weather-main">
+        <div class="weather-main-emoji">${w.emoji}</div>
+        <div class="weather-main-temp">${temp}℃</div>
+        <div class="weather-main-label">${w.label}</div>
+      </div>`;
+    }
+  } catch {
+    const el = document.getElementById(`weather-${spot.id}`);
+    if (el && !spot.photo) el.innerHTML = `<span style="font-size:64px">${spot.emoji}</span>`;
+  }
 }
 
 function modalHTML(s) {
@@ -740,8 +787,13 @@ function modalHTML(s) {
   }).join('');
 
   const photoHTML = s.photo
-    ? `<div class="modal-photo"><img src="${s.photo}" alt="${s.shortName}" loading="lazy" onerror="this.parentElement.innerHTML='${s.emoji}'"></div>`
-    : `<div class="modal-photo">${s.emoji}</div>`;
+    ? `<div class="modal-photo-wrap">
+         <img src="${s.photo}" alt="${s.shortName}" loading="lazy" onerror="this.style.display='none'">
+         <div class="weather-overlay" id="weather-${s.id}">⏳ --℃</div>
+       </div>`
+    : `<div class="modal-photo-wrap" id="weather-${s.id}">
+         <span style="font-size:64px">${s.emoji}</span>
+       </div>`;
 
   return `
     ${photoHTML}
