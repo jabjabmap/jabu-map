@@ -712,14 +712,14 @@ const SPOTS = [
 
 // ─── FILTERS ─────────────────────────────────────────────────────────────────
 const FILTER_DEFS = [
-  { id: 'today',     label: '📅 今日行ける',      test: s => spotTodayStatus(s).code === 'open' },
-  { id: 'fountain',  label: '⛲ 噴水あり',        test: s => s.type.includes('噴水') },
-  { id: 'flow',      label: '🌊 流れ・滝',        test: s => s.type.includes('流れ') || s.type.includes('滝') || s.type.includes('せせらぎ') },
-  { id: 'large',     label: '📏 広め(100㎡↑)',    test: s => { const m = parseInt(s.scale); return m >= 100; } },
-  { id: 'fewclean',  label: '🧹 清掃少ない',      test: s => s.cleaningDays && s.cleaningDays.includes('清掃なし') },
-  { id: 'parking',   label: '🚗 駐車場あり',      test: s => s.parking === true },
-  { id: 'toilet',    label: '🚻 トイレあり',      test: s => s.toilet === true },
-  { id: 'station',   label: '🚃 駅近',            test: s => s.nearStation === true },
+  { id: 'today',     label: '📅 今日行ける',       test: s => spotTodayStatus(s).code === 'open' },
+  { id: 'toilet',    label: '🚻 トイレあり',       test: s => s.toilet === true },
+  { id: 'diaperchg', label: '🍼 おむつ替え可',    test: s => s.changing === true },
+  { id: 'flow',      label: '🌊 流れ・滝',         test: s => s.type.includes('流れ') || s.type.includes('滝') || s.type.includes('せせらぎ') },
+  { id: 'large',     label: '📏 広め(100㎡↑)',     test: s => { const m = parseInt(s.scale); return m >= 100; } },
+  { id: 'fewclean',  label: '🧹 清掃少ない',       test: s => s.cleaningDays && s.cleaningDays.includes('清掃なし') },
+  { id: 'parking',   label: '🚗 駐車場あり',       test: s => s.parking === true },
+  { id: 'station',   label: '🚃 駅近',             test: s => s.nearStation === true },
 ];
 
 const activeFilters = new Set();

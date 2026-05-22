@@ -577,16 +577,17 @@ const SPOTS = [
 
 // ─── FILTERS ─────────────────────────────────────────────────────────────────
 const FILTER_DEFS = [
-  { id: 'today',    label: '📅 今日行ける',      test: s => spotTodayStatus(s).code === 'open' },
-  { id: 'fountain', label: '⛲ 噴水あり',        test: s => s.type.includes('噴水') },
-  { id: 'flow',     label: '🌊 流れあり',        test: s => s.type.includes('流れ') },
-  { id: 'pond',     label: '🏊 池あり',          test: s => s.type.includes('池') },
-  { id: 'mist',     label: '💨 ミスト噴水',      test: s => s.type.includes('ミスト') },
-  { id: 'complex',  label: '✨ 複合施設',        test: s => s.type.includes('複合') },
-  { id: 'station',  label: '🚃 駅近',            test: s => s.nearStation === true },
-  { id: 'parking',  label: '🚗 駐車場あり',      test: s => s.parking === true },
-  { id: 'east',     label: '📍 東部管内',        test: s => s.area === '東部管内' },
-  { id: 'west',     label: '📍 西部管内',        test: s => s.area === '西部管内' },
+  { id: 'today',    label: '📅 今日行ける',       test: s => spotTodayStatus(s).code === 'open' },
+  { id: 'toilet',   label: '🚻 トイレあり',       test: s => s.toilet === true },
+  { id: 'diaperchg', label: '🍼 おむつ替え可',   test: s => s.changing === true },
+  { id: 'flow',     label: '🌊 流れあり',         test: s => s.type.includes('流れ') },
+  { id: 'pond',     label: '🏊 池あり',           test: s => s.type.includes('池') },
+  { id: 'mist',     label: '💨 ミスト噴水',       test: s => s.type.includes('ミスト') },
+  { id: 'complex',  label: '✨ 複合施設',         test: s => s.type.includes('複合') },
+  { id: 'station',  label: '🚃 駅近',             test: s => s.nearStation === true },
+  { id: 'parking',  label: '🚗 駐車場あり',       test: s => s.parking === true },
+  { id: 'east',     label: '📍 東部管内',         test: s => s.area === '東部管内' },
+  { id: 'west',     label: '📍 西部管内',         test: s => s.area === '西部管内' },
 ];
 
 const activeFilters = new Set();
