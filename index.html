@@ -460,7 +460,7 @@ const SPOTS = [
     scale: "113㎡",
     period: "7月1日〜9月15日",
     cleaningDays: "7/11、7/28、8/4、8/14、8/22、9/1",
-    diaper: false, toilet: true, changing: false,
+    diaper: false, toilet: true, changing: false, diaperStation: true,
     tent: null, shade: true, parking: true, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
     depth: "噴水（水中機器あり注意）",
@@ -600,7 +600,7 @@ const SPOTS = [
     scale: "46㎡",
     period: "7月1日〜9月15日",
     cleaningDays: "7/14、8/4、8/8、8/18、9/4",
-    diaper: false, toilet: null, changing: false,
+    diaper: false, toilet: null, changing: false, diaperStation: true,
     tent: null, shade: null, parking: null, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
     depth: "要確認",
@@ -714,7 +714,7 @@ const SPOTS = [
 const FILTER_DEFS = [
   { id: 'today',     label: '📅 今日行ける',       test: s => spotTodayStatus(s).code === 'open' },
   { id: 'toilet',    label: '🚻 トイレあり',       test: s => s.toilet === true },
-  { id: 'diaperchg', label: '🍼 おむつ替え可',    test: s => s.changing === true },
+  { id: 'diaperchg', label: '🍼 おむつ替え可',    test: s => s.diaperStation === true },
   { id: 'flow',      label: '🌊 流れ・滝',         test: s => s.type.includes('流れ') || s.type.includes('滝') || s.type.includes('せせらぎ') },
   { id: 'large',     label: '📏 広め(100㎡↑)',     test: s => { const m = parseInt(s.scale); return m >= 100; } },
   { id: 'fewclean',  label: '🧹 清掃少ない',       test: s => s.cleaningDays && s.cleaningDays.includes('清掃なし') },
@@ -880,9 +880,10 @@ function closeModalDirect() {
 
 function modalHTML(s) {
   const infoRows = [
-    { emoji: '🍼', label: 'おむつ持込',         val: s.diaper,   ok: 'OK',    ng: 'NG（公式ルール）' },
-    { emoji: '🚻', label: 'トイレ',             val: s.toilet,   ok: 'あり',  ng: 'なし' },
-    { emoji: '👗', label: '更衣室',             val: s.changing, ok: 'あり',  ng: 'なし（公式ルール）' },
+    { emoji: '🍼', label: 'おむつ持込',           val: s.diaper,        ok: 'OK',    ng: 'NG（公式ルール）' },
+    { emoji: '🚻', label: 'トイレ',               val: s.toilet,        ok: 'あり',  ng: 'なし' },
+    { emoji: '🧷', label: 'おむつ替えスペース',   val: s.diaperStation, ok: 'あり',  ng: 'なし' },
+    { emoji: '👗', label: '更衣室',               val: s.changing,      ok: 'あり',  ng: 'なし（公式ルール）' },
     { emoji: '🌳', label: '日陰',               val: s.shade,    ok: 'あり',  ng: '少ない' },
     { emoji: '🚗', label: '駐車場',             val: s.parking,  ok: 'あり',  ng: 'なし' },
     { emoji: '🚃', label: '駅近（徒歩圏）',     val: s.nearStation, ok: '近い', ng: '車推奨' },
