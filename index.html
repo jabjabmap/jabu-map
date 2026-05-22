@@ -110,6 +110,11 @@
     .cleaning-box { background: #FFF8E1; border-radius: 10px; padding: 9px 12px; margin: 8px 0; font-size: 11px; color: #5D4037; line-height: 1.6; border-left: 3px solid #FFA726; }
     .cleaning-title { font-weight: 700; font-size: 11px; margin-bottom: 3px; color: #E65100; }
 
+    .today-badge { display: inline-flex; align-items: center; gap: 3px; padding: 3px 9px; border-radius: 8px; font-size: 11px; font-weight: 700; margin-bottom: 7px; }
+    .today-badge.open    { background: var(--green-bg); color: var(--green); }
+    .today-badge.cleaning { background: var(--red-bg);  color: var(--red); }
+    .today-badge.offseason { background: var(--gray-bg); color: var(--gray); }
+
     .section-title { font-size: 11px; font-weight: 700; color: var(--gray); letter-spacing: 0.8px; text-transform: uppercase; margin: 14px 0 8px; }
 
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 4px; }
@@ -707,13 +712,14 @@ const SPOTS = [
 
 // ─── FILTERS ─────────────────────────────────────────────────────────────────
 const FILTER_DEFS = [
-  { id: 'fountain',  label: '⛲ 噴水あり',       test: s => s.type.includes('噴水') },
-  { id: 'flow',      label: '🌊 流れ・滝',       test: s => s.type.includes('流れ') || s.type.includes('滝') || s.type.includes('せせらぎ') },
-  { id: 'large',     label: '📏 広め(100㎡↑)',   test: s => { const m = parseInt(s.scale); return m >= 100; } },
-  { id: 'fewclean',  label: '🧹 清掃少ない',     test: s => s.cleaningDays && s.cleaningDays.includes('清掃なし') },
-  { id: 'parking',   label: '🚗 駐車場あり',     test: s => s.parking === true },
-  { id: 'toilet',    label: '🚻 トイレあり',     test: s => s.toilet === true },
-  { id: 'station',   label: '🚃 駅近',           test: s => s.nearStation === true },
+  { id: 'today',     label: '📅 今日行ける',      test: s => spotTodayStatus(s).code === 'open' },
+  { id: 'fountain',  label: '⛲ 噴水あり',        test: s => s.type.includes('噴水') },
+  { id: 'flow',      label: '🌊 流れ・滝',        test: s => s.type.includes('流れ') || s.type.includes('滝') || s.type.includes('せせらぎ') },
+  { id: 'large',     label: '📏 広め(100㎡↑)',    test: s => { const m = parseInt(s.scale); return m >= 100; } },
+  { id: 'fewclean',  label: '🧹 清掃少ない',      test: s => s.cleaningDays && s.cleaningDays.includes('清掃なし') },
+  { id: 'parking',   label: '🚗 駐車場あり',      test: s => s.parking === true },
+  { id: 'toilet',    label: '🚻 トイレあり',      test: s => s.toilet === true },
+  { id: 'station',   label: '🚃 駅近',            test: s => s.nearStation === true },
 ];
 
 const activeFilters = new Set();
@@ -721,6 +727,38 @@ let map, markers = {};
 let selectedId = null;
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
+function parseCleaningDates(str) {
+  if (!str || str.includes('清掃なし') || str.includes('確認要')) return [];
+  const s = str.replace(/（[^）]*）/g, '').trim();
+  const dates = [];
+  let month = null;
+  for (const token of s.split(/[、,\s]+/)) {
+    if (!token) continue;
+    const fm = token.match(/^(\d+)\/(\d+)-(\d+)$/);
+    if (fm) { month = +fm[1]; for (let d = +fm[2]; d <= +fm[3]; d++) dates.push({ m: month, d }); continue; }
+    const fs = token.match(/^(\d+)\/(\d+)$/);
+    if (fs) { month = +fs[1]; dates.push({ m: month, d: +fs[2] }); continue; }
+    const br = token.match(/^(\d+)-(\d+)$/);
+    if (br && month) { for (let d = +br[1]; d <= +br[2]; d++) dates.push({ m: month, d }); continue; }
+    const bs = token.match(/^(\d+)$/);
+    if (bs && month) dates.push({ m: month, d: +bs[1] });
+  }
+  return dates;
+}
+
+function spotTodayStatus(spot) {
+  if (spot.period && spot.period.includes('工事中')) return { code: 'unavailable', label: '⚠️ 工事中', cls: 'cleaning' };
+  const now = new Date();
+  const m = now.getMonth() + 1, d = now.getDate();
+  const inSeason = (m > 7 || (m === 7 && d >= 1)) && (m < 9 || (m === 9 && d <= 15));
+  if (!inSeason) return { code: 'offseason', label: 'シーズン外（7/1〜9/15）', cls: 'offseason' };
+  if (!spot.cleaningDays || spot.cleaningDays.includes('清掃なし')) return { code: 'open', label: '✅ 今日行ける', cls: 'open' };
+  const cleaning = parseCleaningDates(spot.cleaningDays).some(dt => dt.m === m && dt.d === d);
+  return cleaning
+    ? { code: 'cleaning', label: '🧹 本日清掃中（利用不可）', cls: 'cleaning' }
+    : { code: 'open',    label: '✅ 今日行ける',              cls: 'open' };
+}
+
 function boolLabel(val, okText = 'あり', ngText = 'なし', unknownText = '要確認') {
   if (val === true)  return { text: okText,      cls: 'ok' };
   if (val === false) return { text: ngText,       cls: 'ng' };
@@ -798,15 +836,17 @@ function cardHTML(s) {
     return `<div class="ci ${r.cls}"><span class="ci-emoji">${item.emoji}</span><span class="ci-label">${r.text}</span></div>`;
   }).join('');
 
+  const status = spotTodayStatus(s);
+
   return `
     <div class="card${selectedId === s.id ? ' highlighted' : ''}" id="card-${s.id}">
       <div class="card-top">
         <div class="card-name">${s.name.replace('\n', ' ')}</div>
         <div class="card-type-badge">${s.type}</div>
       </div>
+      <div class="today-badge ${status.cls}">${status.label}</div>
       <div class="card-meta">
         <span class="card-meta-item">📐 ${s.scale}</span>
-        <span class="card-meta-item">📅 ${s.period}</span>
       </div>
       <div class="card-icons">${iconsHTML}</div>
     </div>`;

@@ -119,6 +119,11 @@
 
     .disclaimer { background: #FFF8E1; border-radius: 10px; padding: 10px 12px; margin: 4px 0 16px; font-size: 11px; color: #5D4037; line-height: 1.55; border-left: 3px solid #FFA726; }
 
+    .today-badge { display: inline-flex; align-items: center; gap: 3px; padding: 3px 9px; border-radius: 8px; font-size: 11px; font-weight: 700; margin-bottom: 7px; }
+    .today-badge.open     { background: var(--green-bg); color: var(--green); }
+    .today-badge.cleaning { background: var(--red-bg);   color: var(--red); }
+    .today-badge.offseason { background: var(--gray-bg);  color: var(--gray); }
+
     .leaflet-container { font-family: inherit; }
   </style>
 </head>
@@ -572,15 +577,16 @@ const SPOTS = [
 
 // ─── FILTERS ─────────────────────────────────────────────────────────────────
 const FILTER_DEFS = [
-  { id: 'fountain', label: '⛲ 噴水あり',       test: s => s.type.includes('噴水') },
-  { id: 'flow',     label: '🌊 流れあり',       test: s => s.type.includes('流れ') },
-  { id: 'pond',     label: '🏊 池あり',         test: s => s.type.includes('池') },
-  { id: 'mist',     label: '💨 ミスト噴水',     test: s => s.type.includes('ミスト') },
-  { id: 'complex',  label: '✨ 複合施設',       test: s => s.type.includes('複合') },
-  { id: 'station',  label: '🚃 駅近',           test: s => s.nearStation === true },
-  { id: 'parking',  label: '🚗 駐車場あり',     test: s => s.parking === true },
-  { id: 'east',     label: '📍 東部管内',       test: s => s.area === '東部管内' },
-  { id: 'west',     label: '📍 西部管内',       test: s => s.area === '西部管内' },
+  { id: 'today',    label: '📅 今日行ける',      test: s => spotTodayStatus(s).code === 'open' },
+  { id: 'fountain', label: '⛲ 噴水あり',        test: s => s.type.includes('噴水') },
+  { id: 'flow',     label: '🌊 流れあり',        test: s => s.type.includes('流れ') },
+  { id: 'pond',     label: '🏊 池あり',          test: s => s.type.includes('池') },
+  { id: 'mist',     label: '💨 ミスト噴水',      test: s => s.type.includes('ミスト') },
+  { id: 'complex',  label: '✨ 複合施設',        test: s => s.type.includes('複合') },
+  { id: 'station',  label: '🚃 駅近',            test: s => s.nearStation === true },
+  { id: 'parking',  label: '🚗 駐車場あり',      test: s => s.parking === true },
+  { id: 'east',     label: '📍 東部管内',        test: s => s.area === '東部管内' },
+  { id: 'west',     label: '📍 西部管内',        test: s => s.area === '西部管内' },
 ];
 
 const activeFilters = new Set();
@@ -588,6 +594,16 @@ let map, markers = {};
 let selectedId = null;
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
+function spotTodayStatus(spot) {
+  const now = new Date();
+  const m = now.getMonth() + 1, d = now.getDate();
+  // 練馬区シーズン：7月中旬（15日）〜8月末
+  const inSeason = (m === 7 && d >= 15) || m === 8;
+  if (!inSeason) return { code: 'offseason', label: 'シーズン外（7月中旬〜8月末）', cls: 'offseason' };
+  // 練馬区は清掃日スケジュール非公開のためシーズン中は全件開放扱い
+  return { code: 'open', label: '✅ 今日行ける', cls: 'open' };
+}
+
 function boolLabel(val, okText = 'あり', ngText = 'なし', unknownText = '要確認') {
   if (val === true)  return { text: okText,      cls: 'ok' };
   if (val === false) return { text: ngText,       cls: 'ng' };
@@ -665,15 +681,17 @@ function cardHTML(s) {
     return `<div class="ci ${r.cls}"><span class="ci-emoji">${item.emoji}</span><span class="ci-label">${r.text}</span></div>`;
   }).join('');
 
+  const status = spotTodayStatus(s);
+
   return `
     <div class="card${selectedId === s.id ? ' highlighted' : ''}" id="card-${s.id}">
       <div class="card-top">
         <div class="card-name">${s.name.replace('\n', ' ')}</div>
         <div class="card-type-badge">${s.type}</div>
       </div>
+      <div class="today-badge ${status.cls}">${status.label}</div>
       <div class="card-meta">
         <span class="card-meta-item">📍 ${s.area}</span>
-        <span class="card-meta-item">📅 ${s.period}</span>
       </div>
       <div class="card-icons">${iconsHTML}</div>
     </div>`;
