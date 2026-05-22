@@ -63,7 +63,7 @@
     .spot-count { font-size: 22px; font-weight: 800; color: var(--blue-dark); }
     .spot-label { font-size: 12px; color: var(--gray); }
 
-    .cards { padding: 4px 12px 80px; display: flex; flex-direction: column; gap: 10px; }
+    .cards { padding: 4px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
     .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 13px 14px; cursor: pointer; border: 1.5px solid transparent; transition: border-color 0.15s, transform 0.1s; }
     .card:active { transform: scale(0.985); }
     .card.highlighted { border-color: var(--blue-mid); }
@@ -156,14 +156,14 @@
   <div class="filter-row" id="filterRow"></div>
 </div>
 
-<div id="map"></div>
-
 <div class="spot-header">
   <span class="spot-count" id="spotCount">0</span>
   <span class="spot-label">件表示中</span>
 </div>
 
 <div class="cards" id="cardList"></div>
+
+<div id="map"></div>
 
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
   <div class="modal" id="modal">
