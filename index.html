@@ -45,6 +45,13 @@
 
     .season-banner { background: linear-gradient(90deg, #0288D1, #00ACC1); color: white; padding: 7px 14px; font-size: 12px; text-align: center; }
 
+    .date-filter-wrap { background: white; padding: 10px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .date-filter-label { font-size: 12px; font-weight: 700; color: var(--blue-dark); white-space: nowrap; }
+    .date-filter-input { border: 1.5px solid var(--blue-mid); border-radius: 8px; padding: 5px 8px; font-size: 12px; color: var(--text-main); font-family: inherit; background: white; }
+    .date-reset-btn { border: none; background: var(--gray-bg); color: var(--gray); font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 8px; cursor: pointer; }
+    .date-reset-btn:active { opacity: 0.7; }
+    .date-current-label { font-size: 11px; color: var(--gray); width: 100%; }
+
     .filter-wrap { background: white; padding: 10px 12px; border-bottom: 1px solid var(--border); }
     .filter-row { display: flex; flex-wrap: wrap; gap: 7px; }
     .filter-chip {
@@ -162,7 +169,14 @@
 </header>
 
 <div class="season-banner">
-  🌊 開設期間：7月1日〜9月15日（令和7年度実績）｜ おむつNG・更衣室なし（全公園共通）｜ <a href="https://www.city.edogawa.tokyo.jp/e066/kuseijoho/gaiyo/shisetsuguide/bunya/koendobutsuen/jabjab.html" target="_blank" rel="noopener" style="color:white;font-weight:700;">📋 江戸川区公式サイト</a>
+  🌊 開設期間：7月1日〜9月23日（令和8年度・区公式発表）｜ 利用時間9:00〜17:00｜ おむつNG・更衣室なし（全公園共通）｜ <a href="https://www.city.edogawa.tokyo.jp/e066/kuseijoho/gaiyo/shisetsuguide/bunya/koendobutsuen/jabjab.html" target="_blank" rel="noopener" style="color:white;font-weight:700;">📋 江戸川区公式サイト</a>
+</div>
+
+<div class="date-filter-wrap">
+  <span class="date-filter-label">📅 いつ行く？</span>
+  <input type="date" class="date-filter-input" id="dateInput">
+  <button class="date-reset-btn" id="dateResetBtn" style="display:none">今日に戻す</button>
+  <span class="date-current-label" id="dateCurrentLabel"></span>
 </div>
 
 <div class="filter-wrap">
@@ -190,8 +204,8 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// ─── DATA（出典：江戸川区公式HP 更新日2026-01-15）────────────────────────────
-// 全スポット共通：おむつNG・更衣室なし・開設7/1〜9/15
+// ─── DATA（出典：江戸川区公式HP 更新日2026-07-01・令和8年度確定情報）────────────
+// 全スポット共通：おむつNG・更衣室なし・開設7/1〜9/23・利用時間9:00〜17:00
 const BASE = "https://www.city.edogawa.tokyo.jp";
 const OFFICIAL = BASE + "/e066/kuseijoho/gaiyo/shisetsuguide/bunya/koendobutsuen/jabjab.html";
 
@@ -206,8 +220,8 @@ const SPOTS = [
     lat: 35.7060, lng: 139.8620,
     address: "本一色1丁目34番から西小松川町",
     scale: "全線3,930m",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/8-11、7/22-25、8/5-8、8/26-29、9/9-12",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/7-10、7/21-24、8/4-7、8/25-28、9/8-11",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: true, parking: null, stroller: true, nearStation: false,
     ageRange: "2〜6歳向け（流れ注意）",
@@ -226,14 +240,14 @@ const SPOTS = [
     lat: 35.6920, lng: 139.8550,
     address: "一之江5丁目12番地先",
     scale: "240㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "清掃なし（濾過設備あり・常時きれい）",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/28、8/26",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
     depth: "要確認",
     crowd: "要確認",
-    note: "濾過設備があるため清掃休止なし。かんたんの里のすぐ前。常時きれいな水質が期待できる。",
+    note: "清掃日は年2回のみ（7/28・8/26）と非常に少なく利用しやすい。かんたんの里のすぐ前。",
     gmapQuery: "一之江境川親水公園 一之江5丁目 江戸川区"
   },
   {
@@ -246,14 +260,14 @@ const SPOTS = [
     lat: 35.6830, lng: 139.8530,
     address: "一之江6丁目18番地先",
     scale: "355㎡（3地点で最大）",
-    period: "7月1日〜9月15日",
-    cleaningDays: "清掃なし（濾過設備あり・常時きれい）",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/29、8/27",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
     depth: "要確認",
     crowd: "要確認",
-    note: "355㎡と一之江境川エリア最大。松江第五中学校前。濾過設備あり・清掃休止なし。",
+    note: "清掃日は年2回のみ（7/29・8/27）。355㎡と一之江境川エリア最大。松江第五中学校前。",
     gmapQuery: "一之江境川親水公園 一之江6丁目 江戸川区"
   },
   {
@@ -266,14 +280,14 @@ const SPOTS = [
     lat: 35.6760, lng: 139.8610,
     address: "二之江町1371番地先",
     scale: "145㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "清掃なし（濾過設備あり・常時きれい）",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/30、8/28",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
     depth: "要確認",
     crowd: "要確認",
-    note: "二之江さくら公園のすぐ前。濾過設備あり・清掃休止なし。",
+    note: "清掃日は年2回のみ（7/30・8/28）。二之江さくら公園のすぐ前。",
     gmapQuery: "一之江境川親水公園 二之江町 江戸川区"
   },
   {
@@ -286,8 +300,8 @@ const SPOTS = [
     lat: 35.7100, lng: 139.8570,
     address: "東小松川4丁目31番1号",
     scale: "215㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/1、4、8、11、15、18、23、25、29、8/1、5、8、13、15、19、22、26、29、9/2、5、9、12",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/3、7、10、14、17、22、24、28、31、8/4、7、12、14、18、21、25、28、9/1、4、11、18",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
@@ -306,8 +320,8 @@ const SPOTS = [
     lat: 35.6950, lng: 139.8400,
     address: "平井1丁目24番6号",
     scale: "57㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/1、4、8、11、15、18、23、25、29、8/1、5、8、13、15、19、22、26、29、9/2、5、9、12",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/3、7、10、14、17、22、24、28、31、8/4、7、12、14、18、21、25、28、9/1、4、11、18",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
@@ -326,8 +340,8 @@ const SPOTS = [
     lat: 35.6840, lng: 139.8430,
     address: "平井7丁目3番3号",
     scale: "36㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/1、4、8、11、15、18、23、25、29、8/1、5、8、13、15、19、22、26、29、9/2、5、9、12",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/3、7、10、14、17、22、24、28、31、8/4、7、12、14、18、21、25、28、9/1、4、11、18",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
@@ -346,8 +360,8 @@ const SPOTS = [
     lat: 35.6590, lng: 139.8820,
     address: "江戸川6丁目7番地先",
     scale: "155㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/7-8、7/24-25、8/6-7、8/21-22、9/1-3",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/9、8/6、9/3",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: true, parking: null, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
@@ -366,8 +380,8 @@ const SPOTS = [
     lat: 35.6550, lng: 139.8780,
     address: "江戸川6丁目36番地先",
     scale: "125㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/7-8、7/24-25、8/6-7、8/21-22、9/1-3",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/10、8/7、9/4",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
@@ -386,8 +400,8 @@ const SPOTS = [
     lat: 35.6540, lng: 139.8610,
     address: "清新町2丁目8番先",
     scale: "161㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/11、7/25、8/8、8/18、9/2",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/10、17、8/7、21、9/4",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: true,
     ageRange: "0〜6歳向け",
@@ -406,8 +420,8 @@ const SPOTS = [
     lat: 35.6610, lng: 139.8660,
     address: "西葛西6丁目29番先",
     scale: "111㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/17、7/25、7/31、8/12、8/22、8/29、9/4、9/9",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/7、21、8/3、14、28、9/18",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: true,
     ageRange: "0〜6歳向け",
@@ -426,8 +440,8 @@ const SPOTS = [
     lat: 35.6750, lng: 139.8690,
     address: "船堀5丁目3番8号",
     scale: "26㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/17、8/4、8/8、8/18、8/29、9/4",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/7、13、8/17、28、9/11",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: true,
     ageRange: "0〜6歳向け",
@@ -446,8 +460,8 @@ const SPOTS = [
     lat: 35.6800, lng: 139.8750,
     address: "船堀2丁目7番14号",
     scale: "110㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/8、11、14、17、22、25、28、31、8/4、8、12、14、18、22、26、29、9/1、4、9、12",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/3、7、10、14、17、22、24、28、31、8/4、7、14、18、21、25、28、9/1、4、11、18",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: true,
     ageRange: "0〜6歳向け",
@@ -466,8 +480,8 @@ const SPOTS = [
     lat: 35.6600, lng: 139.8720,
     address: "北葛西3丁目2番1号",
     scale: "113㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/11、7/28、8/4、8/14、8/22、9/1",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/7、21、8/3、17、28、9/11",
     diaper: false, toilet: true, changing: false, diaperStation: true,
     tent: null, shade: true, parking: true, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
@@ -486,8 +500,8 @@ const SPOTS = [
     lat: 35.6580, lng: 139.8680,
     address: "北葛西4丁目15番1号",
     scale: "268㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/8、11、14、17、22、25、28、31、8/4、8、12、14、18、22、26、29、9/1、4、9、12",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/2、6、9、13、16、21、23、27、30、8/3、5、13、17、20、24、27、31、9/3、10、17",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
@@ -506,8 +520,8 @@ const SPOTS = [
     lat: 35.6640, lng: 139.8760,
     address: "中葛西3丁目21番1号",
     scale: "341㎡（葛西エリア最大級）",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/8、11、14、17、22、25、28、31、8/4、8、12、14、18、22、26、29、9/1、4、9、12",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/2、6、9、13、16、21、23、27、30、8/3、5、13、17、20、24、27、31、9/3、10、17",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
@@ -526,14 +540,14 @@ const SPOTS = [
     lat: 35.6570, lng: 139.8870,
     address: "東葛西5丁目26番1号",
     scale: "139㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "9/12（令和7年度実績）",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/2、6、9、13、16、21、23、27、30、8/3、5、13、17、20、24、27、31、9/3、10、17",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
     depth: "要確認",
     crowd: "要確認",
-    note: "令和7年度は清掃日が少なかった実績あり。最新情報は公式確認を。",
+    note: "",
     gmapQuery: "葛西東公園 東葛西5丁目 江戸川区"
   },
   {
@@ -546,14 +560,14 @@ const SPOTS = [
     lat: 35.6630, lng: 139.8620,
     address: "西葛西7丁目2番（総合レクリエーション公園内）",
     scale: "1,080㎡（区内最大）",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/17、8/7、8/21（清掃少なく利用しやすい）",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/22、8/5、26、9/9",
     diaper: false, toilet: true, changing: false,
     tent: null, shade: null, parking: true, stroller: true, nearStation: false,
     ageRange: "0〜6歳向け",
     depth: "噴水＋じゃぶじゃぶ池",
     crowd: "人気スポット・土日は混みやすい",
-    note: "区内最大1,080㎡。噴水と池が両方楽しめる。清掃日が少なく使いやすい。総合レクリエーション公園内で駐車場・トイレ完備。",
+    note: "区内最大1,080㎡。噴水と池が両方楽しめる。清掃日が少なく使いやすい。総合レクリエーション公園内で駐車場・トイレ完備。⚠️ 全面リニューアル工事中で完了予定は令和8年7月上旬（区発表）。来園前に必ず区公式サイトまたは環境部公園整備課総合レクリエーション公園整備係（03-5662-5215）で開設状況をご確認ください。",
     gmapQuery: "虹の広場 総合レクリエーション公園 西葛西7丁目 江戸川区"
   },
   {
@@ -566,8 +580,8 @@ const SPOTS = [
     lat: 35.6540, lng: 139.8590,
     address: "清新町2丁目8番5号",
     scale: "120㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/8、11、14、17、22、25、28、31、8/4、8、12、14、18、22、26、29、9/1、4、9、12",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/2、6、9、13、16、21、23、27、30、8/3、5、13、17、20、24、27、31、9/3、10、17",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: true,
     ageRange: "0〜6歳向け",
@@ -586,14 +600,14 @@ const SPOTS = [
     lat: 35.6600, lng: 139.8600,
     address: "南葛西4丁目9番（総合レクリエーション公園内）",
     scale: "590㎡",
-    period: "⚠️ 令和7年度は工事中・使用不可",
-    cleaningDays: "令和8年度の開設状況は公式確認要",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/21、8/4、25、9/8",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: true, stroller: true, nearStation: false,
-    ageRange: "0〜6歳向け（開設時）",
+    ageRange: "0〜6歳向け",
     depth: "噴水池および流れ（浅瀬）",
-    crowd: "リニューアル後に要確認",
-    note: "令和7年度はリニューアル工事中のため使用不可。令和8年度（2026年）の開設状況は公式サイトで必ず確認を。バラに囲まれた景観が美しい公園。",
+    crowd: "要確認",
+    note: "リニューアル工事が完了し令和8年度は利用可能（区公式サイト確認済み）。バラに囲まれた景観が美しい公園。清掃日は年4回のみで利用しやすい。総合レクリエーション公園内で駐車場あり。",
     gmapQuery: "フラワーガーデン 総合レクリエーション公園 南葛西4丁目 江戸川区"
   },
   {
@@ -606,14 +620,14 @@ const SPOTS = [
     lat: 35.6640, lng: 139.8790,
     address: "春江町5丁目26番",
     scale: "46㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/14、8/4、8/8、8/18、9/4",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/7、13、8/17、9/11",
     diaper: false, toilet: null, changing: false, diaperStation: true,
     tent: null, shade: null, parking: null, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
     depth: "要確認",
     crowd: "要確認",
-    note: "金魚をテーマにしたユニークな公園。清掃日少なめ。",
+    note: "金魚をテーマにしたユニークな公園。清掃日は年4回のみで利用しやすい。",
     gmapQuery: "えどがわ金魚公園 春江町5丁目 江戸川区"
   },
   {
@@ -626,8 +640,8 @@ const SPOTS = [
     lat: 35.7270, lng: 139.8930,
     address: "北小岩3丁目20番3号",
     scale: "130㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/3、7、14、17、22、24、28、31、8/4、7、12、14、18、21、25、28、9/1、4、8、11、17",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/2、6、9、13、16、21、23、27、31、8/3、6、13、17、20、24、27、31、9/3、7、10、17",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: true, parking: null, stroller: true, nearStation: true,
     ageRange: "0〜6歳向け",
@@ -646,8 +660,8 @@ const SPOTS = [
     lat: 35.7300, lng: 139.8950,
     address: "北小岩6丁目52番7号",
     scale: "40㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/3、10、17、24、31、8/7、14、21、28、9/4、11、16",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/2、9、16、23、31、8/6、13、20、27、9/3、17",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: true,
     ageRange: "0〜6歳向け",
@@ -666,14 +680,14 @@ const SPOTS = [
     lat: 35.7250, lng: 139.8930,
     address: "東小岩5丁目8番10号",
     scale: "25㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/22、8/25、9/16",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/21、8/24",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: true,
     ageRange: "2〜6歳向け",
     depth: "滝（足元注意）",
     crowd: "小規模・穴場",
-    note: "「滝」が楽しめる区内唯一の珍スポット。清掃日が非常に少なく穴場。",
+    note: "「滝」が楽しめる区内唯一の珍スポット。清掃日は年2回のみと非常に少なく穴場。",
     gmapQuery: "東小岩滝児童遊園 東小岩5丁目 江戸川区"
   },
   {
@@ -686,8 +700,8 @@ const SPOTS = [
     lat: 35.7010, lng: 139.9200,
     address: "新堀1丁目5番1号",
     scale: "205㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/3、10、14、17、22、24、28、31、8/4、7、12、14、18、21、25、28、9/1、4、8、11、17",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/2、6、9、13、16、21、23、27、31、8/3、6、13、17、20、24、27、31、9/3、7、10、17",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
@@ -706,8 +720,8 @@ const SPOTS = [
     lat: 35.6590, lng: 139.8870,
     address: "江戸川1丁目42番10号",
     scale: "90㎡",
-    period: "7月1日〜9月15日",
-    cleaningDays: "7/3、7、10、14、17、22、24、28、31、8/4、7、12、14、18、21、25、28、9/4、8、11、16",
+    period: "7月1日〜9月23日",
+    cleaningDays: "7/2、6、9、13、16、21、23、27、31、8/3、6、13、17、20、24、27、31、9/3、7、10、17",
     diaper: false, toilet: null, changing: false,
     tent: null, shade: null, parking: null, stroller: true, nearStation: null,
     ageRange: "0〜6歳向け",
@@ -720,12 +734,12 @@ const SPOTS = [
 
 // ─── FILTERS ─────────────────────────────────────────────────────────────────
 const FILTER_DEFS = [
-  { id: 'today',     label: '📅 今日行ける',       test: s => spotTodayStatus(s).code === 'open' },
+  { id: 'today',     label: '📅 行ける日のみ',     test: s => spotStatusForDate(s, getRefDate()).code === 'open' },
   { id: 'toilet',    label: '🚻 トイレあり',       test: s => s.toilet === true },
   { id: 'diaperchg', label: '🍼 おむつ替え可',    test: s => s.diaperStation === true },
   { id: 'flow',      label: '🌊 流れ・滝',         test: s => s.type.includes('流れ') || s.type.includes('滝') || s.type.includes('せせらぎ') },
   { id: 'large',     label: '📏 広め(100㎡↑)',     test: s => { const m = parseInt(s.scale); return m >= 100; } },
-  { id: 'fewclean',  label: '🧹 清掃少ない',       test: s => s.cleaningDays && s.cleaningDays.includes('清掃なし') },
+  { id: 'fewclean',  label: '🧹 清掃少ない',       test: s => { const n = parseCleaningDates(s.cleaningDays).length; return n > 0 && n <= 4; } },
   { id: 'parking',   label: '🚗 駐車場あり',       test: s => s.parking === true },
   { id: 'station',   label: '🚃 駅近',             test: s => s.nearStation === true },
 ];
@@ -733,6 +747,7 @@ const FILTER_DEFS = [
 const activeFilters = new Set();
 let map, markers = {};
 let selectedId = null;
+let selectedDate = null; // null = 今日
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function parseCleaningDates(str) {
@@ -754,17 +769,25 @@ function parseCleaningDates(str) {
   return dates;
 }
 
-function spotTodayStatus(spot) {
+function isSameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function getRefDate() {
+  return selectedDate || new Date();
+}
+
+function spotStatusForDate(spot, date) {
+  const dayWord = isSameDay(date, new Date()) ? '今日' : `${date.getMonth() + 1}/${date.getDate()}`;
   if (spot.period && spot.period.includes('工事中')) return { code: 'unavailable', label: '⚠️ 工事中', cls: 'cleaning' };
-  const now = new Date();
-  const m = now.getMonth() + 1, d = now.getDate();
-  const inSeason = (m > 7 || (m === 7 && d >= 1)) && (m < 9 || (m === 9 && d <= 15));
-  if (!inSeason) return { code: 'offseason', label: 'シーズン外（7/1〜9/15）', cls: 'offseason' };
-  if (!spot.cleaningDays || spot.cleaningDays.includes('清掃なし')) return { code: 'open', label: '✅ 今日行ける', cls: 'open' };
+  const m = date.getMonth() + 1, d = date.getDate();
+  const inSeason = (m > 7 || (m === 7 && d >= 1)) && (m < 9 || (m === 9 && d <= 23));
+  if (!inSeason) return { code: 'offseason', label: 'シーズン外（7/1〜9/23）', cls: 'offseason' };
+  if (!spot.cleaningDays || spot.cleaningDays.includes('清掃なし')) return { code: 'open', label: `✅ ${dayWord}行ける`, cls: 'open' };
   const cleaning = parseCleaningDates(spot.cleaningDays).some(dt => dt.m === m && dt.d === d);
   return cleaning
-    ? { code: 'cleaning', label: '🧹 本日清掃中（利用不可）', cls: 'cleaning' }
-    : { code: 'open',    label: '✅ 今日行ける',              cls: 'open' };
+    ? { code: 'cleaning', label: `🧹 ${dayWord}は清掃中（利用不可）`, cls: 'cleaning' }
+    : { code: 'open',    label: `✅ ${dayWord}行ける`,                cls: 'open' };
 }
 
 function boolLabel(val, okText = 'あり', ngText = 'なし', unknownText = '要確認') {
@@ -844,7 +867,7 @@ function cardHTML(s) {
     return `<div class="ci ${r.cls}"><span class="ci-emoji">${item.emoji}</span><span class="ci-label">${r.text}</span></div>`;
   }).join('');
 
-  const status = spotTodayStatus(s);
+  const status = spotStatusForDate(s, getRefDate());
 
   return `
     <div class="card${selectedId === s.id ? ' highlighted' : ''}" id="card-${s.id}">
@@ -954,7 +977,7 @@ function modalHTML(s) {
     <div class="modal-body">
       <div class="modal-name">${s.name.replace('\n', '<br>')}</div>
       <div class="modal-address">📍 ${s.address}</div>
-      <div class="official-badge">✅ 江戸川区公式情報（${s.lastChecked || '2026-01-15'}）</div>
+      <div class="official-badge">✅ 江戸川区公式情報（${s.lastChecked || '2026-07-01'}）</div>
 
       <div class="modal-period-box">
         <div class="period-item">
@@ -1026,9 +1049,46 @@ function toggleFilter(id) {
   renderCards();
 }
 
+// ─── DATE PICKER ─────────────────────────────────────────────────────────────
+const WEEKDAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
+
+function initDatePicker() {
+  const yr = new Date().getFullYear();
+  const input = document.getElementById('dateInput');
+  input.min = `${yr}-07-01`;
+  input.max = `${yr}-09-23`;
+  input.addEventListener('change', () => {
+    if (input.value) {
+      const [y, m, d] = input.value.split('-').map(Number);
+      selectedDate = new Date(y, m - 1, d);
+    } else {
+      selectedDate = null;
+    }
+    updateDateUI();
+    renderCards();
+  });
+  document.getElementById('dateResetBtn').addEventListener('click', () => {
+    selectedDate = null;
+    input.value = '';
+    updateDateUI();
+    renderCards();
+  });
+  updateDateUI();
+}
+
+function updateDateUI() {
+  const date = getRefDate();
+  const isToday = isSameDay(date, new Date());
+  document.getElementById('dateResetBtn').style.display = isToday ? 'none' : 'inline-flex';
+  document.getElementById('dateCurrentLabel').textContent = isToday
+    ? `今日（${date.getMonth() + 1}/${date.getDate()}）の状況を表示中`
+    : `${date.getMonth() + 1}/${date.getDate()}（${WEEKDAY_JA[date.getDay()]}）の状況を表示中`;
+}
+
 // ─── INIT ────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   renderFilters();
+  initDatePicker();
   initMap();
   renderCards();
 });
